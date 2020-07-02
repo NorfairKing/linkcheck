@@ -19,6 +19,7 @@ library:
     - http-client
     - http-client-tls
     - http-types
+    - monad-logger
     - network-uri
     - optparse-applicative
     - path
