@@ -3,6 +3,7 @@ module LinkCheck
   )
 where
 
+import Conduit
 import LinkCheck.OptParse
 
 linkCheck :: IO ()

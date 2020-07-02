@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module LinkCheck.OptParse
   ( module LinkCheck.OptParse,
     module LinkCheck.OptParse.Types,
@@ -6,6 +8,7 @@ where
 
 import qualified Env
 import LinkCheck.OptParse.Types
+import Network.URI
 import Options.Applicative
 import qualified System.Environment as System
 
@@ -20,7 +23,9 @@ getConfig :: Flags -> Environment -> IO (Maybe Configuration)
 getConfig _ _ = pure Nothing
 
 deriveSettings :: Flags -> Environment -> Maybe Configuration -> IO Settings
-deriveSettings Flags Environment _ = pure Settings
+deriveSettings Flags {..} Environment _ = do
+  let setUri = flagUri
+  pure Settings {..}
 
 getFlags :: IO Flags
 getFlags = do
@@ -42,13 +47,18 @@ runArgumentsParser = execParserPure prefs_ flagsParser
         }
 
 flagsParser :: ParserInfo Flags
-flagsParser = info (helper <*> parseFlags) help_
-  where
-    help_ = fullDesc <> progDesc description
-    description = "smos-archive"
+flagsParser = info (helper <*> parseFlags) fullDesc
 
 parseFlags :: Parser Flags
-parseFlags = pure Flags
+parseFlags =
+  Flags
+    <$> argument
+      (maybeReader parseAbsoluteURI)
+      ( mconcat
+          [ help "The root uri. This must be an absolute URI. For example: https://example.com or http://localhost:8000",
+            metavar "URI"
+          ]
+      )
 
 getEnvironment :: IO Environment
 getEnvironment = Env.parse (Env.header "Environment") environmentParser

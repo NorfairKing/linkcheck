@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7bd0c1006618d66f1244b2fc0126d26f267c0f3de06ef208f87fe3b14ef6d51d
+-- hash: 9a9d20f9faf4a1aed794d9016d8e71478b6b5aedb4fafd1cbbe495dd80a87bf9
 
 name:           linkcheck
 version:        0.0.0.0
@@ -31,7 +31,9 @@ library
   build-depends:
       aeson
     , base >=4.7 && <5
+    , conduit
     , envparse
+    , network-uri
     , optparse-applicative
     , path
     , path-io

@@ -12,11 +12,13 @@ library:
   source-dirs: src
   dependencies:
     - aeson
-    - yamlparse-applicative
+    - network-uri
+    - conduit
     - envparse
     - optparse-applicative
     - path
     - path-io
+    - yamlparse-applicative
 
 executables:
   linkcheck:
