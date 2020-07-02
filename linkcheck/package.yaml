@@ -28,6 +28,7 @@ library:
     - tagsoup
     - text
     - unliftio
+    - unliftio
     - yamlparse-applicative
 
 executables:

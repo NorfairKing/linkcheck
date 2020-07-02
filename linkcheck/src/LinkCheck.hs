@@ -7,7 +7,6 @@ module LinkCheck
   )
 where
 
-import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
@@ -27,6 +26,7 @@ import Network.HTTP.Types as HTTP
 import Network.URI
 import System.Exit
 import Text.HTML.TagSoup
+import UnliftIO
 
 linkCheck :: IO ()
 linkCheck = do
@@ -37,17 +37,17 @@ linkCheck = do
   results <- newTVarIO M.empty :: IO (TVar (Map URI HTTP.Status))
   let go :: LoggingT IO ()
       go = do
-        mv <- liftIO $ atomically $ tryReadTQueue queue
+        mv <- atomically $ tryReadTQueue queue
         case mv of
           Nothing -> pure () -- Done
           Just uri -> do
-            alreadySeen <- liftIO $ (S.member uri) <$> readTVarIO seen
+            alreadySeen <- (S.member uri) <$> readTVarIO seen
             if alreadySeen
               then do
                 logDebugN $ "Not fetching again: " <> T.pack (show uri)
                 go
               else do
-                liftIO $ atomically $ modifyTVar' seen $ S.insert uri
+                atomically $ modifyTVar' seen $ S.insert uri
                 case requestFromURI uri of
                   Nothing -> do
                     logErrorN $ "Unable to construct a request from this uri: " <> T.pack (show uri)
@@ -59,11 +59,11 @@ linkCheck = do
                     let status = responseStatus resp
                     let sci = HTTP.statusCode status
                     logDebugN $ "Got response for " <> T.pack (show uri) <> ": " <> T.pack (show sci)
-                    unless (200 <= sci && sci < 300) $ liftIO $ atomically $ modifyTVar' results $ M.insert uri status
+                    unless (200 <= sci && sci < 300) $ atomically $ modifyTVar' results $ M.insert uri status
                     let tags = parseTagsOptions parseOptionsFast body
                     let uris = mapMaybe (parseURIRelativeTo setUri) $ mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $ mapMaybe aTagHref tags :: [URI]
                     let allSameHostAbsoluteUris = filter ((== uriAuthority setUri) . uriAuthority) uris
-                    liftIO $ atomically $ mapM_ (writeTQueue queue) allSameHostAbsoluteUris
+                    atomically $ mapM_ (writeTQueue queue) allSameHostAbsoluteUris
                     go
   atomically $ writeTQueue queue setUri
   runStderrLoggingT $ filterLogger (\_ ll -> ll >= setLogLevel) go
