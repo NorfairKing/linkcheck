@@ -45,11 +45,13 @@ linkCheck = do
                 case requestFromURI uri of
                   Nothing -> die $ "Invalid uri: " <> show setUri
                   Just req -> do
-                    resp <- httpLbs req man
-                    let body = responseBody resp
+                    body <- withResponse req man $ \resp -> do
+                      bodyChunks <- brConsume $ responseBody resp
+                      throwErrorStatusCodes req resp
+                      pure $ LB.fromChunks bodyChunks
                     let tags = parseTagsOptions parseOptionsFast body
                     let uris = mapMaybe parseURI $ mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $ mapMaybe aTagHref tags :: [URI]
-                    let (absoluteUris, relativeUris) = partition uriIsAbsolute uris :: ([URI], [URI])
+                    let (absoluteUris, relativeUris) = partition uriIsAbsolute uris
                         rootedRelativeUris = map (relativeTo setUri) relativeUris :: [URI]
                         allAbsoluteUris = absoluteUris ++ rootedRelativeUris :: [URI]
                         allSameHostAbsoluteUris = filter ((== uriAuthority setUri) . uriAuthority) allAbsoluteUris
