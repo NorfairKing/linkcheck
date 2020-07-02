@@ -32,6 +32,9 @@ stdenv.mkDerivation {
 ## Limitations
 
 * `linkcheck` does not try to run JavaScript
-* Only supports the `href` attribute in `a` tags.
+* Only supports these tags:
+  - `href` in `a` tags 
+  - `src` in `img` tags.
+  - `href` in `link` tags.
 * Does not honor `robots.txt`
 * Does not try to fetch external links

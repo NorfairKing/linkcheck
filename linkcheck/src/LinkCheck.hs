@@ -131,4 +131,6 @@ rightToMaybe = \case
 aTagHref :: (Eq str, IsString str) => Tag str -> Maybe str
 aTagHref = \case
   TagOpen "a" as -> lookup "href" as
+  TagOpen "link" as -> lookup "href" as
+  TagOpen "img" as -> lookup "src" as
   _ -> Nothing
