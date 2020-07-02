@@ -10,9 +10,16 @@ dependencies:
 
 library:
   source-dirs: src
+  dependencies:
+    - aeson
+    - yamlparse-applicative
+    - envparse
+    - optparse-applicative
+    - path
+    - path-io
 
 executables:
-  linkcheck-exe:
+  linkcheck:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

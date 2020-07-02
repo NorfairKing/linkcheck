@@ -3,5 +3,7 @@ module LinkCheck
   )
 where
 
+import LinkCheck.OptParse
+
 linkCheck :: IO ()
-linkCheck = putStrLn "linkCheck"
+linkCheck = getSettings >>= print

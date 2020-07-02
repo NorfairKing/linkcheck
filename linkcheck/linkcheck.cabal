@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9ac213932d20b0ba7ee04120cd48fd728ba019bd3da160014215aa510777d215
+-- hash: 7bd0c1006618d66f1244b2fc0126d26f267c0f3de06ef208f87fe3b14ef6d51d
 
 name:           linkcheck
 version:        0.0.0.0
@@ -22,15 +22,23 @@ source-repository head
 library
   exposed-modules:
       LinkCheck
+      LinkCheck.OptParse
+      LinkCheck.OptParse.Types
   other-modules:
       Paths_linkcheck
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , envparse
+    , optparse-applicative
+    , path
+    , path-io
+    , yamlparse-applicative
   default-language: Haskell2010
 
-executable linkcheck-exe
+executable linkcheck
   main-is: Main.hs
   other-modules:
       Paths_linkcheck
