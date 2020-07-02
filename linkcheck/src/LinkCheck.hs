@@ -54,19 +54,19 @@ linkCheck = do
                     pure () -- Just ignore
                   Just req -> do
                     logInfoN $ "Fetching: " <> T.pack (show uri)
-                    body <- liftIO $ withResponse req man $ \resp -> do
-                      bodyChunks <- brConsume $ responseBody resp
-                      let status = responseStatus resp
-                      let sci = HTTP.statusCode status
-                      unless (200 <= sci && sci < 300) $ atomically $ modifyTVar' results $ M.insert uri status
-                      pure $ LB.fromChunks bodyChunks
+                    resp <- liftIO $ httpLbs req man
+                    let body = responseBody resp
+                    let status = responseStatus resp
+                    let sci = HTTP.statusCode status
+                    logDebugN $ "Got response for " <> T.pack (show uri) <> ": " <> T.pack (show sci)
+                    unless (200 <= sci && sci < 300) $ liftIO $ atomically $ modifyTVar' results $ M.insert uri status
                     let tags = parseTagsOptions parseOptionsFast body
                     let uris = mapMaybe (parseURIRelativeTo setUri) $ mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $ mapMaybe aTagHref tags :: [URI]
                     let allSameHostAbsoluteUris = filter ((== uriAuthority setUri) . uriAuthority) uris
                     liftIO $ atomically $ mapM_ (writeTQueue queue) allSameHostAbsoluteUris
                     go
   atomically $ writeTQueue queue setUri
-  runStderrLoggingT go
+  runStderrLoggingT $ filterLogger (\_ ll -> ll >= setLogLevel) go
   resultsList <- M.toList <$> readTVarIO results
   unless (null resultsList)
     $ die

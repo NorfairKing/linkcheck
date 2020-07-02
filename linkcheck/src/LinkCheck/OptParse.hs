@@ -6,11 +6,14 @@ module LinkCheck.OptParse
   )
 where
 
+import Control.Monad.Logger
+import Data.Maybe
 import qualified Env
 import LinkCheck.OptParse.Types
 import Network.URI
 import Options.Applicative
 import qualified System.Environment as System
+import Text.Read
 
 getSettings :: IO Settings
 getSettings = do
@@ -25,6 +28,7 @@ getConfig _ _ = pure Nothing
 deriveSettings :: Flags -> Environment -> Maybe Configuration -> IO Settings
 deriveSettings Flags {..} Environment _ = do
   let setUri = flagUri
+      setLogLevel = fromMaybe LevelInfo flagLogLevel
   pure Settings {..}
 
 getFlags :: IO Flags
@@ -59,6 +63,18 @@ parseFlags =
             metavar "URI"
           ]
       )
+      <*> option
+        (Just <$> maybeReader parseLogLevel)
+        ( mconcat
+            [ long "log-level",
+              help $ "The log level, example values: " <> show (map (drop 5 . show) [LevelDebug, LevelInfo, LevelWarn, LevelError]),
+              metavar "LOG_LEVEL",
+              value Nothing
+            ]
+        )
+
+parseLogLevel :: String -> Maybe LogLevel
+parseLogLevel s = readMaybe $ "Level" <> s
 
 getEnvironment :: IO Environment
 getEnvironment = Env.parse (Env.header "Environment") environmentParser
