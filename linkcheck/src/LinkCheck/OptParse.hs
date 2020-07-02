@@ -29,6 +29,7 @@ deriveSettings :: Flags -> Environment -> Maybe Configuration -> IO Settings
 deriveSettings Flags {..} Environment _ = do
   let setUri = flagUri
       setLogLevel = fromMaybe LevelInfo flagLogLevel
+      setFetchers = flagFetchers
   pure Settings {..}
 
 getFlags :: IO Flags
@@ -69,6 +70,15 @@ parseFlags =
             [ long "log-level",
               help $ "The log level, example values: " <> show (map (drop 5 . show) [LevelDebug, LevelInfo, LevelWarn, LevelError]),
               metavar "LOG_LEVEL",
+              value Nothing
+            ]
+        )
+      <*> option
+        (Just <$> auto)
+        ( mconcat
+            [ long "fetchers",
+              help "The number of threads to fetch from. This application is usually not CPU bound so you can comfortably set this higher than the number of cores you have",
+              metavar "INT",
               value Nothing
             ]
         )
