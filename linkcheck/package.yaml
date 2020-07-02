@@ -12,12 +12,20 @@ library:
   source-dirs: src
   dependencies:
     - aeson
-    - network-uri
+    - bytestring
     - conduit
+    - containers
     - envparse
+    - http-client
+    - http-client-tls
+    - network-uri
     - optparse-applicative
     - path
     - path-io
+    - stm
+    - tagsoup
+    - text
+    - unliftio
     - yamlparse-applicative
 
 executables:

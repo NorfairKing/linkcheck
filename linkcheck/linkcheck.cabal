@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9a9d20f9faf4a1aed794d9016d8e71478b6b5aedb4fafd1cbbe495dd80a87bf9
+-- hash: 28bfe18bcfb659cd2b22af59961a5115a4708eb87675ca7781539a1aa6e63ccd
 
 name:           linkcheck
 version:        0.0.0.0
@@ -31,12 +31,20 @@ library
   build-depends:
       aeson
     , base >=4.7 && <5
+    , bytestring
     , conduit
+    , containers
     , envparse
+    , http-client
+    , http-client-tls
     , network-uri
     , optparse-applicative
     , path
     , path-io
+    , stm
+    , tagsoup
+    , text
+    , unliftio
     , yamlparse-applicative
   default-language: Haskell2010
 
