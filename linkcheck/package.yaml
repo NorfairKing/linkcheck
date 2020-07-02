@@ -18,6 +18,7 @@ library:
     - envparse
     - http-client
     - http-client-tls
+    - http-types
     - network-uri
     - optparse-applicative
     - path

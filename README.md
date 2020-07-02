@@ -6,7 +6,7 @@ This is designed to be run on CI to make sure that you do not have dead links on
 
 ## Using linkcheck
 
-Start your server locally on `localhost:8000` and run linkcheck using:
+Start your server locally on `localhost:8000` and run `linkcheck` as follows:
 
 ```
 linkcheck http://localhost:8000
@@ -31,7 +31,7 @@ stdenv.mkDerivation {
 
 ## Limitations
 
-* `linkcheck` does not try to run javascript
+* `linkcheck` does not try to run JavaScript
 * Only supports the `href` attribute in `a` tags.
 * Does not honor `robots.txt`
 * Does not try to fetch external links
