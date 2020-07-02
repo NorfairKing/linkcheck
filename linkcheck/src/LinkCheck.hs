@@ -7,11 +7,9 @@ module LinkCheck
   )
 where
 
-import Conduit
 import Control.Concurrent.STM
-import qualified Data.ByteString as SB
+import Control.Monad
 import qualified Data.ByteString.Lazy as LB
-import Data.List
 import Data.Maybe
 import qualified Data.Set as S
 import Data.Set (Set)
@@ -50,15 +48,19 @@ linkCheck = do
                       throwErrorStatusCodes req resp
                       pure $ LB.fromChunks bodyChunks
                     let tags = parseTagsOptions parseOptionsFast body
-                    let uris = mapMaybe parseURI $ mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $ mapMaybe aTagHref tags :: [URI]
-                    let (absoluteUris, relativeUris) = partition uriIsAbsolute uris
-                        rootedRelativeUris = map (relativeTo setUri) relativeUris :: [URI]
-                        allAbsoluteUris = absoluteUris ++ rootedRelativeUris :: [URI]
-                        allSameHostAbsoluteUris = filter ((== uriAuthority setUri) . uriAuthority) allAbsoluteUris
+                    let uris = mapMaybe (parseURIRelativeTo setUri) $ mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $ mapMaybe aTagHref tags :: [URI]
+                    let allSameHostAbsoluteUris = filter ((== uriAuthority setUri) . uriAuthority) uris
                     atomically $ mapM_ (writeTQueue queue) allSameHostAbsoluteUris
                     go
   atomically $ writeTQueue queue setUri
   go
+
+parseURIRelativeTo :: URI -> String -> Maybe URI
+parseURIRelativeTo root s =
+  msum
+    [ (`relativeTo` root) <$> parseRelativeReference s,
+      parseAbsoluteURI s
+    ]
 
 rightToMaybe :: Either e a -> Maybe a
 rightToMaybe = \case
