@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ef5dcd42ef5f70793d1c8a70fbdcaf4f2f35ecdd0811252bdb7f2402a09d476f
+-- hash: d50bb84359267337337ff630003dad171d845e794b93e82d9b8a542640cae8bd
 
 name:           linkcheck
 version:        0.0.0.0
@@ -56,7 +56,7 @@ executable linkcheck
       Paths_linkcheck
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -optP-Wno-nonportable-include-path
   build-depends:
       base >=4.7 && <5
     , linkcheck

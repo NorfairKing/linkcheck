@@ -50,8 +50,7 @@ linkCheck = do
   unless (null resultsList)
     $ die
     $ unlines
-    $ map (\(uri, status) -> unwords [show uri, show status])
-    $ resultsList
+    $ map (\(uri, status) -> unwords [show uri, show status]) resultsList
 
 worker :: URI -> HTTP.Manager -> TQueue URI -> TVar (Set URI) -> TVar (Map URI HTTP.Status) -> TVar (IntMap Bool) -> Int -> LoggingT IO ()
 worker root man queue seen results stati index = go True
@@ -81,18 +80,17 @@ worker root man queue seen results stati index = go True
           -- logDebugN $ "Worker is busy: " <> T.pack (show index)
           unless busy setBusy
           -- Check if the uri has been seen already
-          alreadySeen <- (S.member uri) <$> readTVarIO seen
+          alreadySeen <- S.member uri <$> readTVarIO seen
           if alreadySeen
-            then do
-              -- We've already seen it, don't do anything.
-              -- logDebugN $ "Not fetching again: " <> T.pack (show uri)
+            then-- We've already seen it, don't do anything.
+            -- logDebugN $ "Not fetching again: " <> T.pack (show uri)
               pure ()
             else do
               -- We haven't seen it yet. Mark it as seen.
               atomically $ modifyTVar' seen $ S.insert uri
               -- Create a request
               case requestFromURI uri of
-                Nothing -> do
+                Nothing ->
                   logErrorN $ "Unable to construct a request from this uri: " <> T.pack (show uri)
                 Just req -> do
                   logInfoN $ "Fetching: " <> T.pack (show uri)
