@@ -1,11 +1,11 @@
-resolver: lts-14.23
+resolver: lts-15.15
 packages:
 - linkcheck
 extra-deps:
 - envparse-0.4.1@sha256:989902e6368532548f61de1fa245ad2b39176cddd8743b20071af519a709ce30,2842
 - yamlparse-applicative-0.1.0.1@sha256:204fe56e9caa1658bb5e16382ede6e1c1d7ba7c8c11fbbb07d73b5cd64a666a5,2133
 nix:
-  path: [ "nixpkgs=https://github.com/NixOS/nixpkgs/archive/323fe92057bb38475a446ff5e18d3b388c2e4403.tar.gz" ]
+  path: [ "nixpkgs=https://github.com/NixOS/nixpkgs/archive/e3a2247046d4de66b9b193a6ab3ff040fa3da86d.tar.gz" ]
   add-gc-roots: true
   packages:
   - zlib
