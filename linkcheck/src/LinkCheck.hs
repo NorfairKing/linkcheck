@@ -22,11 +22,13 @@ import qualified Data.Set as S
 import Data.String
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import Data.Version
 import LinkCheck.OptParse
 import Network.HTTP.Client as HTTP
 import Network.HTTP.Client.TLS as HTTP
 import Network.HTTP.Types as HTTP
 import Network.URI
+import Paths_linkcheck
 import System.Exit
 import Text.HTML.TagSoup
 import UnliftIO
@@ -34,7 +36,17 @@ import UnliftIO
 linkCheck :: IO ()
 linkCheck = do
   Settings {..} <- getSettings
-  man <- HTTP.newTlsManager
+  let managerSets =
+        HTTP.tlsManagerSettings
+          { managerModifyRequest = \request -> do
+              let headers =
+                    ( "User-Agent",
+                      TE.encodeUtf8 $ T.pack $ "linkcheck-" <> showVersion version
+                    ) :
+                    requestHeaders request
+              pure $ request {requestHeaders = headers}
+          }
+  man <- liftIO $ HTTP.newManager managerSets
   queue <- newTQueueIO
   seen <- newTVarIO S.empty
   results <- newTVarIO M.empty
@@ -125,9 +137,12 @@ worker fetchExternal root man queue seen results stati index = go True
                               mapMaybe (parseURIRelativeTo root) $
                                 mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $
                                   mapMaybe aTagHref tags
-                        let predicate = if fetchExternal then const True else (== uriAuthority root) . uriAuthority
+                        let predicate =
+                              if fetchExternal
+                                then const True
+                                else -- Filter out the ones that are not on the same host.
+                                  (== uriAuthority root) . uriAuthority
                         let urisToAddToQueue = filter predicate uris
-                        -- Filter out the ones that are not on the same host.
                         atomically $ mapM_ (writeTQueue queue) urisToAddToQueue
           -- Filter out the ones that are not on the same host.
           go True
