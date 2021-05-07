@@ -3,5 +3,5 @@ let
   pre-commit = import ./nix/pre-commit.nix;
 in
 pkgs.linkCheckPackages // {
-  pre-commit-check = pre-commit.check.run;
+  pre-commit-check = pre-commit.check;
 }
