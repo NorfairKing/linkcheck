@@ -1,19 +1,20 @@
 let
-  pkgsv = import (import ./nixpkgs.nix);
-  pkgs = pkgsv {};
-  yamlparse-applicative-overlay =
-    import (
-      pkgs.fetchFromGitHub (import ./yamlparse-applicative-version.nix) + "/nix/overlay.nix"
-    );
-  linkCheckPkgs =
-    pkgsv {
+  sources = import ./sources.nix;
+  pkgsf = import sources.nixpkgs;
+  pre-commit-hooks = import sources.pre-commit-hooks;
+  yamlparse-applicative-overlay = import (sources.yamlparse-applicative + "/nix/overlay.nix");
+  safe-coloured-text-overlay = import (sources.safe-coloured-text + "/nix/overlay.nix");
+  linkcheckPkgs =
+    pkgsf {
       overlays =
         [
           yamlparse-applicative-overlay
-          (import ./gitignore-src.nix)
+          safe-coloured-text-overlay
+          (final: previous: { niv = (import sources.niv { pkgs = final; }).niv; })
+          (final: previous: { inherit (import sources.gitignore { inherit (final) lib; }) gitignoreSource; })
           (import ./overlay.nix)
         ];
       config.allowUnfree = true;
     };
 in
-linkCheckPkgs
+linkcheckPkgs

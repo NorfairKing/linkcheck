@@ -14,11 +14,11 @@ import Control.Monad.Logger
 import qualified Data.ByteString.Lazy as LB
 import Data.IntMap (IntMap)
 import qualified Data.IntMap.Strict as IM
-import qualified Data.Map as M
 import Data.Map (Map)
+import qualified Data.Map as M
 import Data.Maybe
-import qualified Data.Set as S
 import Data.Set (Set)
+import qualified Data.Set as S
 import Data.String
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -42,15 +42,16 @@ linkCheck = do
       indexes = [0 .. fetchers - 1]
   fetcherStati <- newTVarIO $ IM.fromList $ zip indexes (repeat True)
   atomically $ writeTQueue queue setUri
-  runStderrLoggingT $ filterLogger (\_ ll -> ll >= setLogLevel) $ do
-    logInfoN $ "Running with " <> T.pack (show fetchers) <> " fetchers"
-    forConcurrently_ indexes $ \ix ->
-      worker setUri man queue seen results fetcherStati ix
+  runStderrLoggingT $
+    filterLogger (\_ ll -> ll >= setLogLevel) $ do
+      logInfoN $ "Running with " <> T.pack (show fetchers) <> " fetchers"
+      forConcurrently_ indexes $ \ix ->
+        worker setUri man queue seen results fetcherStati ix
   resultsList <- M.toList <$> readTVarIO results
-  unless (null resultsList)
-    $ die
-    $ unlines
-    $ map (\(uri, status) -> unwords [show uri, show status]) resultsList
+  unless (null resultsList) $
+    die $
+      unlines $
+        map (\(uri, status) -> unwords [show uri, show status]) resultsList
 
 worker :: URI -> HTTP.Manager -> TQueue URI -> TVar (Set URI) -> TVar (Map URI HTTP.Status) -> TVar (IntMap Bool) -> Int -> LoggingT IO ()
 worker root man queue seen results stati index = go True
@@ -82,7 +83,7 @@ worker root man queue seen results stati index = go True
           -- Check if the uri has been seen already
           alreadySeen <- S.member uri <$> readTVarIO seen
           if alreadySeen
-            then-- We've already seen it, don't do anything.
+            then -- We've already seen it, don't do anything.
             -- logDebugN $ "Not fetching again: " <> T.pack (show uri)
               pure ()
             else do
@@ -105,9 +106,9 @@ worker root man queue seen results stati index = go True
                   -- Find all uris
                   let tags = parseTagsOptions parseOptionsFast body
                   let uris =
-                        mapMaybe (parseURIRelativeTo root)
-                          $ mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict)
-                          $ mapMaybe aTagHref tags
+                        mapMaybe (parseURIRelativeTo root) $
+                          mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $
+                            mapMaybe aTagHref tags
                   -- Filter out the ones that are not on the same host.
                   let allSameHostAbsoluteUris = filter ((== uriAuthority root) . uriAuthority) uris
                   atomically $ mapM_ (writeTQueue queue) allSameHostAbsoluteUris

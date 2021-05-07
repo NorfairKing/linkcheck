@@ -6,38 +6,42 @@ with final.haskell.lib;
     let
       linkCheckPkg =
         name:
-          doBenchmark (
-            addBuildDepend (
+        doBenchmark (
+          addBuildDepend
+            (
               failOnAllWarnings (
                 disableLibraryProfiling (
-                  final.haskellPackages.callCabal2nix name (final.gitignoreSource (../. + "/${name}")) {}
+                  final.haskellPackages.callCabal2nix name (final.gitignoreSource (../. + "/${name}")) { }
                 )
               )
-            ) (final.haskellPackages.autoexporter)
-          );
+            )
+            (final.haskellPackages.autoexporter)
+        );
       linkCheckPkgWithComp =
         exeName: name:
-          generateOptparseApplicativeCompletion exeName (linkCheckPkg name);
+        generateOptparseApplicativeCompletion exeName (linkCheckPkg name);
       linkCheckPkgWithOwnComp = name: linkCheckPkgWithComp name name;
     in
-      {
-        "linkcheck" = linkCheckPkgWithOwnComp "linkcheck";
-      };
+    {
+      "linkcheck" = linkCheckPkgWithOwnComp "linkcheck";
+    };
   haskellPackages =
     previous.haskellPackages.override (
       old:
-        {
-          overrides =
-            final.lib.composeExtensions (
+      {
+        overrides =
+          final.lib.composeExtensions
+            (
               old.overrides or (
                 _:
                 _:
-                  {}
+                { }
               )
-            ) (
+            )
+            (
               self: super:
                 final.linkCheckPackages
             );
-        }
+      }
     );
 }

@@ -1,12 +1,17 @@
-resolver: lts-15.15
+resolver: lts-16.12
 packages:
 - linkcheck
 extra-deps:
 - envparse-0.4.1@sha256:989902e6368532548f61de1fa245ad2b39176cddd8743b20071af519a709ce30,2842
-- yamlparse-applicative-0.1.0.1@sha256:204fe56e9caa1658bb5e16382ede6e1c1d7ba7c8c11fbbb07d73b5cd64a666a5,2133
+- github: NorfairKing/yamlparse-applicative
+  commit: 7a329d06ffa45595963cf98f34910887115eb471
+  subdirs:
+    - yamlparse-applicative
+- github: NorfairKing/safe-coloured-text
+  commit: d1fa5c8f9a533f52df75356a45216d2ff48a016e
+  subdirs:
+    - safe-coloured-text
 nix:
-  path: [ "nixpkgs=https://github.com/NixOS/nixpkgs/archive/e3a2247046d4de66b9b193a6ab3ff040fa3da86d.tar.gz" ]
+  shell-file: shell.nix
   add-gc-roots: true
-  packages:
-  - zlib
 

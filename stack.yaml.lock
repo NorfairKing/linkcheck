@@ -12,15 +12,34 @@ packages:
   original:
     hackage: envparse-0.4.1@sha256:989902e6368532548f61de1fa245ad2b39176cddd8743b20071af519a709ce30,2842
 - completed:
-    hackage: yamlparse-applicative-0.1.0.1@sha256:204fe56e9caa1658bb5e16382ede6e1c1d7ba7c8c11fbbb07d73b5cd64a666a5,2133
+    size: 19641
+    subdir: yamlparse-applicative
+    url: https://github.com/NorfairKing/yamlparse-applicative/archive/7a329d06ffa45595963cf98f34910887115eb471.tar.gz
+    name: yamlparse-applicative
+    version: 0.1.0.3
+    sha256: e94c9f4ca5902713a50fad8eab3e27f1c8fcbe92850a423dc54d6f24b7b440b1
     pantry-tree:
-      size: 799
-      sha256: 8083e19c7351f3e8dc145a0418d070b57196456a942ad02e16a1c46295a159f6
+      size: 874
+      sha256: 1cb2978576350d3825021f29b99cd16650d484d11c660324646112932a4e8438
   original:
-    hackage: yamlparse-applicative-0.1.0.1@sha256:204fe56e9caa1658bb5e16382ede6e1c1d7ba7c8c11fbbb07d73b5cd64a666a5,2133
+    subdir: yamlparse-applicative
+    url: https://github.com/NorfairKing/yamlparse-applicative/archive/7a329d06ffa45595963cf98f34910887115eb471.tar.gz
+- completed:
+    size: 270897
+    subdir: safe-coloured-text
+    url: https://github.com/NorfairKing/safe-coloured-text/archive/d1fa5c8f9a533f52df75356a45216d2ff48a016e.tar.gz
+    name: safe-coloured-text
+    version: 0.0.0.0
+    sha256: 9884b3e99598dc001fca26ff87f3dafe616f8b4eb8366c384bcc5344a9157177
+    pantry-tree:
+      size: 427
+      sha256: 87088ba8ad6e8b16a83932c1df1301e48e32e245bb54dc7becd0c471fd98a5bf
+  original:
+    subdir: safe-coloured-text
+    url: https://github.com/NorfairKing/safe-coloured-text/archive/d1fa5c8f9a533f52df75356a45216d2ff48a016e.tar.gz
 snapshots:
 - completed:
-    size: 496112
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/15/15.yaml
-    sha256: 86169722ad0056ffc9eacc157ef80ee21d7024f92c0d2961c89ccf432db230a3
-  original: lts-15.15
+    size: 532377
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/12.yaml
+    sha256: f914cfa23fef85bdf895e300a8234d9d0edc2dbec67f4bc9c53f85867c50eab6
+  original: lts-16.12
