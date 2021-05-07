@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d50bb84359267337337ff630003dad171d845e794b93e82d9b8a542640cae8bd
+-- hash: d7fdfccbcc7e6a7588920a054348be01ce112b62ca819e02c7477e0b5f5e25a0
 
 name:           linkcheck
 version:        0.0.0.0
@@ -43,6 +43,7 @@ library
     , optparse-applicative
     , path
     , path-io
+    , retry
     , stm
     , tagsoup
     , text

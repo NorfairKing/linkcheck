@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -11,6 +12,7 @@ import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
+import Control.Retry
 import qualified Data.ByteString.Lazy as LB
 import Data.IntMap (IntMap)
 import qualified Data.IntMap.Strict as IM
@@ -25,6 +27,7 @@ import qualified Data.Text.Encoding as TE
 import Data.Version
 import LinkCheck.OptParse
 import Network.HTTP.Client as HTTP
+import Network.HTTP.Client.Internal as HTTP (toHttpException)
 import Network.HTTP.Client.TLS as HTTP
 import Network.HTTP.Types as HTTP
 import Network.URI
@@ -63,7 +66,16 @@ linkCheck = do
   unless (null resultsList) $
     die $
       unlines $
-        map (\(uri, status) -> unwords [show uri, show status]) resultsList
+        map
+          ( \(uri, errOrStatus) ->
+              unwords
+                [ show uri,
+                  case errOrStatus of
+                    Left err -> show err
+                    Right status -> show status
+                ]
+          )
+          resultsList
 
 worker ::
   Bool ->
@@ -117,7 +129,7 @@ worker fetchExternal root man queue seen results stati index = go True
                 Just req -> do
                   logInfoN $ "Fetching: " <> T.pack (show uri)
                   -- Do the actual fetch
-                  errOrResp <- liftIO $ (Right <$> httpLbs req man) `catch` (\e -> pure $ Left (e :: HttpException))
+                  errOrResp <- liftIO $ retryHTTP req $ httpLbs req man
                   case errOrResp of
                     Left err -> do
                       logDebugN $ "Got exception for " <> T.pack (show uri) <> ": " <> T.pack (show err)
@@ -165,3 +177,34 @@ aTagHref = \case
   TagOpen "link" as -> lookup "href" as
   TagOpen "img" as -> lookup "src" as
   _ -> Nothing
+
+retryHTTP ::
+  -- | Just  for the error message
+  Request ->
+  IO (Response a) ->
+  IO (Either HttpException (Response a))
+retryHTTP req action =
+  let policy =
+        mconcat
+          [ exponentialBackoff 100_000,
+            limitRetries 3
+          ]
+   in retrying
+        policy
+        (\_ e -> pure (couldBeFlaky e))
+        ( \_ ->
+            (Right <$> action)
+              `catches` [ Handler $ pure . Left,
+                          Handler $ pure . Left . toHttpException req
+                        ]
+        )
+  where
+    couldBeFlaky (Left e) = case e of
+      HttpExceptionRequest _ hec -> case hec of
+        ResponseTimeout -> True
+        ConnectionTimeout -> True
+        ConnectionFailure _ -> True
+        NoResponseDataReceived -> True
+        _ -> False
+      InvalidUrlException _ _ -> False
+    couldBeFlaky _ = False
