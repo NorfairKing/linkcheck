@@ -30,6 +30,7 @@ deriveSettings Flags {..} Environment _ = do
   let setUri = flagUri
       setLogLevel = fromMaybe LevelInfo flagLogLevel
       setFetchers = flagFetchers
+      setExternal = fromMaybe False flagExternal
   pure Settings {..}
 
 getFlags :: IO Flags
@@ -69,14 +70,23 @@ parseFlags =
               value Nothing
             ]
         )
-      <*> option
-        (Just <$> auto)
-        ( mconcat
-            [ long "fetchers",
-              help "The number of threads to fetch from. This application is usually not CPU bound so you can comfortably set this higher than the number of cores you have",
-              metavar "INT",
-              value Nothing
-            ]
+      <*> optional
+        ( option
+            auto
+            ( mconcat
+                [ long "fetchers",
+                  help "The number of threads to fetch from. This application is usually not CPU bound so you can comfortably set this higher than the number of cores you have",
+                  metavar "INT"
+                ]
+            )
+        )
+      <*> optional
+        ( switch
+            ( mconcat
+                [ long "external",
+                  help "Also check external links"
+                ]
+            )
         )
 
 parseLogLevel :: String -> Maybe LogLevel

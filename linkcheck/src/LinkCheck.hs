@@ -46,15 +46,24 @@ linkCheck = do
     filterLogger (\_ ll -> ll >= setLogLevel) $ do
       logInfoN $ "Running with " <> T.pack (show fetchers) <> " fetchers"
       forConcurrently_ indexes $ \ix ->
-        worker setUri man queue seen results fetcherStati ix
+        worker setExternal setUri man queue seen results fetcherStati ix
   resultsList <- M.toList <$> readTVarIO results
   unless (null resultsList) $
     die $
       unlines $
         map (\(uri, status) -> unwords [show uri, show status]) resultsList
 
-worker :: URI -> HTTP.Manager -> TQueue URI -> TVar (Set URI) -> TVar (Map URI HTTP.Status) -> TVar (IntMap Bool) -> Int -> LoggingT IO ()
-worker root man queue seen results stati index = go True
+worker ::
+  Bool ->
+  URI ->
+  HTTP.Manager ->
+  TQueue URI ->
+  TVar (Set URI) ->
+  TVar (Map URI (Either HttpException HTTP.Status)) ->
+  TVar (IntMap Bool) ->
+  Int ->
+  LoggingT IO ()
+worker fetchExternal root man queue seen results stati index = go True
   where
     setStatus b = atomically $ modifyTVar' stati $ IM.insert index b
     setBusy = setStatus True
@@ -96,22 +105,30 @@ worker root man queue seen results stati index = go True
                 Just req -> do
                   logInfoN $ "Fetching: " <> T.pack (show uri)
                   -- Do the actual fetch
-                  resp <- liftIO $ httpLbs req man
-                  let body = responseBody resp
-                  let status = responseStatus resp
-                  let sci = HTTP.statusCode status
-                  logDebugN $ "Got response for " <> T.pack (show uri) <> ": " <> T.pack (show sci)
-                  -- If the status code is not in the 2XX range, add it to the results
-                  unless (200 <= sci && sci < 300) $ atomically $ modifyTVar' results $ M.insert uri status
-                  -- Find all uris
-                  let tags = parseTagsOptions parseOptionsFast body
-                  let uris =
-                        mapMaybe (parseURIRelativeTo root) $
-                          mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $
-                            mapMaybe aTagHref tags
-                  -- Filter out the ones that are not on the same host.
-                  let allSameHostAbsoluteUris = filter ((== uriAuthority root) . uriAuthority) uris
-                  atomically $ mapM_ (writeTQueue queue) allSameHostAbsoluteUris
+                  errOrResp <- liftIO $ (Right <$> httpLbs req man) `catch` (\e -> pure $ Left (e :: HttpException))
+                  case errOrResp of
+                    Left err -> do
+                      logDebugN $ "Got exception for " <> T.pack (show uri) <> ": " <> T.pack (show err)
+                      atomically $ modifyTVar' results $ M.insert uri (Left err)
+                    Right resp -> do
+                      let body = responseBody resp
+                      let status = responseStatus resp
+                      let sci = HTTP.statusCode status
+                      logDebugN $ "Got response for " <> T.pack (show uri) <> ": " <> T.pack (show sci)
+                      -- If the status code is not in the 2XX range, add it to the results
+                      unless (200 <= sci && sci < 300) $ atomically $ modifyTVar' results $ M.insert uri (Right status)
+                      -- Only recurse into the page if the page has the same root.
+                      when (uriAuthority uri == uriAuthority root) $ do
+                        -- Find all uris
+                        let tags = parseTagsOptions parseOptionsFast body
+                        let uris =
+                              mapMaybe (parseURIRelativeTo root) $
+                                mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $
+                                  mapMaybe aTagHref tags
+                        let predicate = if fetchExternal then const True else (== uriAuthority root) . uriAuthority
+                        let urisToAddToQueue = filter predicate uris
+                        -- Filter out the ones that are not on the same host.
+                        atomically $ mapM_ (writeTQueue queue) urisToAddToQueue
           -- Filter out the ones that are not on the same host.
           go True
 
