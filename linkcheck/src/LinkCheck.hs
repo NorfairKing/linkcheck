@@ -81,8 +81,11 @@ worker ::
   Bool ->
   URI ->
   HTTP.Manager ->
+  -- Queue
   TQueue URI ->
+  -- Seen
   TVar (Set URI) ->
+  -- Results
   TVar (Map URI (Either HttpException HTTP.Status)) ->
   TVar (IntMap Bool) ->
   Int ->
@@ -114,7 +117,7 @@ worker fetchExternal root man queue seen results stati index = go True
           -- logDebugN $ "Worker is busy: " <> T.pack (show index)
           unless busy setBusy
           -- Check if the uri has been seen already
-          alreadySeen <- S.member uri <$> readTVarIO seen
+          alreadySeen <- atomically $ S.member uri <$> readTVar seen
           if alreadySeen
             then -- We've already seen it, don't do anything.
             -- logDebugN $ "Not fetching again: " <> T.pack (show uri)
@@ -145,10 +148,12 @@ worker fetchExternal root man queue seen results stati index = go True
                       when (uriAuthority uri == uriAuthority root) $ do
                         -- Find all uris
                         let tags = parseTagsOptions parseOptionsFast body
+                        let removeFragment u = u {uriFragment = ""}
                         let uris =
-                              mapMaybe (parseURIRelativeTo root) $
-                                mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $
-                                  mapMaybe aTagHref tags
+                              map removeFragment $
+                                mapMaybe (parseURIRelativeTo root) $
+                                  mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $
+                                    mapMaybe aTagHref tags
                         let predicate =
                               if fetchExternal
                                 then const True
