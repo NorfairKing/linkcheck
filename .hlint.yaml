@@ -1,0 +1,4 @@
+- ignore:
+    name: "Use unless"
+- ignore:
+    name: "Replace case with maybe"

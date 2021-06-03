@@ -31,6 +31,7 @@ deriveSettings Flags {..} Environment _ = do
       setLogLevel = fromMaybe LevelInfo flagLogLevel
       setFetchers = flagFetchers
       setExternal = fromMaybe False flagExternal
+      setCheckFragments = fromMaybe False flagCheckFragments
   pure Settings {..}
 
 getFlags :: IO Flags
@@ -85,6 +86,14 @@ parseFlags =
             ( mconcat
                 [ long "external",
                   help "Also check external links"
+                ]
+            )
+        )
+      <*> optional
+        ( switch
+            ( mconcat
+                [ long "check-fragments",
+                  help "Also check that the URIs' fragment occurs on the page"
                 ]
             )
         )

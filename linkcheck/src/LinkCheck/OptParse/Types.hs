@@ -9,7 +9,8 @@ data Flags = Flags
   { flagUri :: !URI,
     flagLogLevel :: !(Maybe LogLevel),
     flagFetchers :: !(Maybe Int),
-    flagExternal :: !(Maybe Bool)
+    flagExternal :: !(Maybe Bool),
+    flagCheckFragments :: !(Maybe Bool)
   }
   deriving (Show, Eq)
 
@@ -31,6 +32,7 @@ data Settings = Settings
   { setUri :: !URI,
     setLogLevel :: !LogLevel,
     setFetchers :: !(Maybe Int),
-    setExternal :: !Bool
+    setExternal :: !Bool,
+    setCheckFragments :: !Bool
   }
   deriving (Show, Eq)

@@ -34,6 +34,7 @@ import Network.URI
 import Paths_linkcheck
 import System.Exit
 import Text.HTML.TagSoup
+import Text.Printf
 import UnliftIO
 
 linkCheck :: IO ()
@@ -53,31 +54,44 @@ linkCheck = do
   queue <- newTQueueIO
   seen <- newTVarIO S.empty
   results <- newTVarIO M.empty
-  let fetchers = fromMaybe 1 setFetchers
-      indexes = [0 .. fetchers - 1]
+  fetchers <- case setFetchers of
+    Nothing -> getNumCapabilities
+    Just f -> pure f
+  let indexes = [0 .. fetchers - 1]
   fetcherStati <- newTVarIO $ IM.fromList $ zip indexes (repeat True)
   atomically $ writeTQueue queue setUri
   runStderrLoggingT $
     filterLogger (\_ ll -> ll >= setLogLevel) $ do
       logInfoN $ "Running with " <> T.pack (show fetchers) <> " fetchers"
       forConcurrently_ indexes $ \ix ->
-        worker setExternal setUri man queue seen results fetcherStati ix
+        worker setExternal setCheckFragments setUri man queue seen results fetcherStati fetchers ix
   resultsList <- M.toList <$> readTVarIO results
   unless (null resultsList) $
     die $
       unlines $
         map
-          ( \(uri, errOrStatus) ->
+          ( \(uri, result) ->
               unwords
                 [ show uri,
-                  case errOrStatus of
-                    Left err -> show err
-                    Right status -> show status
+                  prettyResult result
                 ]
           )
           resultsList
 
+data Result
+  = ResultException HttpException
+  | ResultStatus HTTP.Status
+  | ResultFragmentMissing String
+  deriving (Show)
+
+prettyResult :: Result -> String
+prettyResult = \case
+  ResultException e -> displayException e
+  ResultStatus status -> show status
+  ResultFragmentMissing f -> "Fragment name or id not found: #" <> f
+
 worker ::
+  Bool ->
   Bool ->
   URI ->
   HTTP.Manager ->
@@ -86,12 +100,20 @@ worker ::
   -- Seen
   TVar (Set URI) ->
   -- Results
-  TVar (Map URI (Either HttpException HTTP.Status)) ->
+  TVar (Map URI Result) ->
   TVar (IntMap Bool) ->
   Int ->
+  Int ->
   LoggingT IO ()
-worker fetchExternal root man queue seen results stati index = go True
+worker fetchExternal checkFragments root man queue seen results stati totalFetchers index = go True
   where
+    fetcherName = case totalFetchers of
+      1 -> "fetcher"
+      _ ->
+        let digits :: Int
+            digits = ceiling (logBase 10 (fromIntegral totalFetchers) :: Double)
+            formatStr = "%0" <> show digits <> "d"
+         in T.pack $ "fetcher-" <> printf formatStr index
     setStatus b = atomically $ modifyTVar' stati $ IM.insert index b
     setBusy = setStatus True
     setIdle = setStatus False
@@ -128,30 +150,38 @@ worker fetchExternal root man queue seen results stati index = go True
               -- Create a request
               case requestFromURI uri of
                 Nothing ->
-                  logErrorN $ "Unable to construct a request from this uri: " <> T.pack (show uri)
+                  logErrorNS fetcherName $ "Unable to construct a request from this uri: " <> T.pack (show uri)
                 Just req -> do
-                  logInfoN $ "Fetching: " <> T.pack (show uri)
+                  logInfoNS fetcherName $ "Fetching: " <> T.pack (show uri)
                   -- Do the actual fetch
                   errOrResp <- liftIO $ retryHTTP req $ httpLbs req man
                   case errOrResp of
                     Left err -> do
-                      logDebugN $ "Got exception for " <> T.pack (show uri) <> ": " <> T.pack (show err)
-                      atomically $ modifyTVar' results $ M.insert uri (Left err)
+                      logDebugNS fetcherName $ "Got exception for " <> T.pack (show uri) <> ": " <> T.pack (show err)
+                      atomically $ modifyTVar' results $ M.insert uri (ResultException err)
                     Right resp -> do
                       let body = responseBody resp
                       let status = responseStatus resp
                       let sci = HTTP.statusCode status
-                      logDebugN $ "Got response for " <> T.pack (show uri) <> ": " <> T.pack (show sci)
+                      logDebugNS fetcherName $ "Got response for " <> T.pack (show uri) <> ": " <> T.pack (show sci)
                       -- If the status code is not in the 2XX range, add it to the results
-                      unless (200 <= sci && sci < 300) $ atomically $ modifyTVar' results $ M.insert uri (Right status)
+                      unless (200 <= sci && sci < 300) $ atomically $ modifyTVar' results $ M.insert uri (ResultStatus status)
                       -- Only recurse into the page if the page has the same root.
                       when (uriAuthority uri == uriAuthority root) $ do
                         -- Find all uris
                         let tags = parseTagsOptions parseOptionsFast body
+                        when checkFragments $ do
+                          case uriFragment uri of
+                            "" -> pure ()
+                            '#' : f -> do
+                              let fragmentLinkGood = LB.fromStrict (TE.encodeUtf8 (T.pack f)) `elem` concatMap tagIdOrName tags
+                              when (not fragmentLinkGood) $ atomically $ modifyTVar' results $ M.insert uri (ResultFragmentMissing (uriFragment uri))
+                            _ -> pure ()
+
                         let removeFragment u = u {uriFragment = ""}
                         let uris =
-                              map removeFragment $
-                                mapMaybe (parseURIRelativeTo root) $
+                              (if checkFragments then id else map removeFragment) $
+                                mapMaybe (parseURIRelativeTo uri) $
                                   mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $
                                     mapMaybe aTagHref tags
                         let predicate =
@@ -182,6 +212,11 @@ aTagHref = \case
   TagOpen "link" as -> lookup "href" as
   TagOpen "img" as -> lookup "src" as
   _ -> Nothing
+
+tagIdOrName :: (Eq str, IsString str) => Tag str -> [str]
+tagIdOrName = \case
+  TagOpen _ as -> maybeToList (lookup "id" as) ++ maybeToList (lookup "name" as)
+  _ -> []
 
 retryHTTP ::
   -- | Just  for the error message
