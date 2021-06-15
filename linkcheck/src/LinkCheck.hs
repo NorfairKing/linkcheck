@@ -5,6 +5,7 @@
 
 module LinkCheck
   ( linkCheck,
+    runLinkCheck,
   )
 where
 
@@ -38,8 +39,10 @@ import Text.Printf
 import UnliftIO
 
 linkCheck :: IO ()
-linkCheck = do
-  Settings {..} <- getSettings
+linkCheck = getSettings >>= runLinkCheck
+
+runLinkCheck :: Settings -> IO ()
+runLinkCheck Settings {..} = do
   let managerSets =
         HTTP.tlsManagerSettings
           { managerModifyRequest = \request -> do
