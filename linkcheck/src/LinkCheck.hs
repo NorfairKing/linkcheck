@@ -62,7 +62,7 @@ runLinkCheck Settings {..} = do
     Just f -> pure f
   let indexes = [0 .. fetchers - 1]
   fetcherStati <- newTVarIO $ IM.fromList $ zip indexes (repeat True)
-  atomically $ writeTQueue queue QueueURI {queueURI = setUri, queueURIDepth = 0, queueURIPath = []}
+  atomically $ writeTQueue queue QueueURI {queueURI = setUri, queueURIDepth = 0, queueURITrace = []}
   runStderrLoggingT $
     filterLogger (\_ ll -> ll >= setLogLevel) $ do
       logInfoN $ "Running with " <> T.pack (show fetchers) <> " fetchers"
@@ -96,7 +96,7 @@ runLinkCheck Settings {..} = do
 
 data Result = Result
   { resultReason :: !ResultReason,
-    resultPath :: ![URI]
+    resultTrace :: ![URI]
   }
   deriving (Show)
 
@@ -110,8 +110,8 @@ prettyResult :: Result -> String
 prettyResult Result {..} = do
   unlines $
     ( unwords ["Reason:", prettyResultReason resultReason] :
-      "Path:" :
-      map show resultPath
+      "Trace:" :
+      map show resultTrace
     )
 
 prettyResultReason :: ResultReason -> String
@@ -137,7 +137,7 @@ data WorkerSettings = WorkerSettings
 data QueueURI = QueueURI
   { queueURI :: !URI,
     queueURIDepth :: !Word,
-    queueURIPath :: ![URI]
+    queueURITrace :: ![URI]
   }
 
 worker ::
@@ -196,7 +196,7 @@ worker WorkerSettings {..} = go True
                         Just md -> ["Depth ", show queueURIDepth, "/", show md, "; Fetching: ", show queueURI]
                   logInfoNS fetcherName $ T.pack $ concat $ fetchingLog
                   let insertResult reason =
-                        atomically $ modifyTVar' workerSetResultsMap $ M.insert queueURI Result {resultReason = reason, resultPath = queueURIPath}
+                        atomically $ modifyTVar' workerSetResultsMap $ M.insert queueURI Result {resultReason = reason, resultTrace = queueURITrace}
                   -- Do the actual fetch
                   errOrResp <- liftIO $ retryHTTP req $ httpLbs req workerSetHTTPManager
                   case errOrResp of
@@ -245,9 +245,8 @@ worker WorkerSettings {..} = go True
                                 then const True
                                 else -- Filter out the ones that are not on the same host.
                                   (== uriAuthority workerSetRoot) . uriAuthority
-                        let urisToAddToQueue = map (\u -> QueueURI {queueURI = u, queueURIDepth = succ queueURIDepth, queueURIPath = queueURI : queueURIPath}) $ filter predicate uris
+                        let urisToAddToQueue = map (\u -> QueueURI {queueURI = u, queueURIDepth = succ queueURIDepth, queueURITrace = queueURI : queueURITrace}) $ filter predicate uris
                         atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
-          -- Filter out the ones that are not on the same host.
           go True
 
 parseURIRelativeTo :: URI -> String -> Maybe URI
