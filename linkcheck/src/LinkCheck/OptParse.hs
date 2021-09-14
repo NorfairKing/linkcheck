@@ -32,6 +32,7 @@ deriveSettings Flags {..} Environment _ = do
       setFetchers = flagFetchers
       setExternal = fromMaybe False flagExternal
       setCheckFragments = fromMaybe False flagCheckFragments
+      setMaxDepth = flagMaxDepth
   pure Settings {..}
 
 getFlags :: IO Flags
@@ -94,6 +95,15 @@ parseFlags =
             ( mconcat
                 [ long "check-fragments",
                   help "Also check that the URIs' fragment occurs on the page"
+                ]
+            )
+        )
+      <*> optional
+        ( option
+            auto
+            ( mconcat
+                [ long "max-depth",
+                  help "Stop looking after reaching this number of links from the root"
                 ]
             )
         )

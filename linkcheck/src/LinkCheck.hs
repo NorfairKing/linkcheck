@@ -62,12 +62,12 @@ runLinkCheck Settings {..} = do
     Just f -> pure f
   let indexes = [0 .. fetchers - 1]
   fetcherStati <- newTVarIO $ IM.fromList $ zip indexes (repeat True)
-  atomically $ writeTQueue queue setUri
+  atomically $ writeTQueue queue (setUri, 0)
   runStderrLoggingT $
     filterLogger (\_ ll -> ll >= setLogLevel) $ do
       logInfoN $ "Running with " <> T.pack (show fetchers) <> " fetchers"
       forConcurrently_ indexes $ \ix ->
-        worker setExternal setCheckFragments setUri man queue seen results fetcherStati fetchers ix
+        worker setExternal setCheckFragments setMaxDepth setUri man queue seen results fetcherStati fetchers ix
   resultsList <- M.toList <$> readTVarIO results
   unless (null resultsList) $
     die $
@@ -96,10 +96,11 @@ prettyResult = \case
 worker ::
   Bool ->
   Bool ->
+  Maybe Word ->
   URI ->
   HTTP.Manager ->
   -- Queue
-  TQueue URI ->
+  TQueue (URI, Word) ->
   -- Seen
   TVar (Set URI) ->
   -- Results
@@ -108,7 +109,7 @@ worker ::
   Int ->
   Int ->
   LoggingT IO ()
-worker fetchExternal checkFragments root man queue seen results stati totalFetchers index = go True
+worker fetchExternal checkFragments maxDepth root man queue seen results stati totalFetchers index = go True
   where
     fetcherName = case totalFetchers of
       1 -> "fetcher"
@@ -137,63 +138,69 @@ worker fetchExternal checkFragments root man queue seen results stati totalFetch
             liftIO $ threadDelay 10000 -- 10 ms
             go False
         -- An item on the queue
-        Just uri -> do
+        Just (uri, curDepth) -> do
           -- Set this worker as busy
           -- logDebugN $ "Worker is busy: " <> T.pack (show index)
           unless busy setBusy
-          -- Check if the uri has been seen already
-          alreadySeen <- atomically $ S.member uri <$> readTVar seen
-          if alreadySeen
-            then -- We've already seen it, don't do anything.
-            -- logDebugN $ "Not fetching again: " <> T.pack (show uri)
-              pure ()
+          if ((curDepth >) <$> maxDepth) == Just True
+            then pure ()
             else do
-              -- We haven't seen it yet. Mark it as seen.
-              atomically $ modifyTVar' seen $ S.insert uri
-              -- Create a request
-              case requestFromURI uri of
-                Nothing ->
-                  logErrorNS fetcherName $ "Unable to construct a request from this uri: " <> T.pack (show uri)
-                Just req -> do
-                  logInfoNS fetcherName $ "Fetching: " <> T.pack (show uri)
-                  -- Do the actual fetch
-                  errOrResp <- liftIO $ retryHTTP req $ httpLbs req man
-                  case errOrResp of
-                    Left err -> do
-                      logDebugNS fetcherName $ "Got exception for " <> T.pack (show uri) <> ": " <> T.pack (show err)
-                      atomically $ modifyTVar' results $ M.insert uri (ResultException err)
-                    Right resp -> do
-                      let body = responseBody resp
-                      let status = responseStatus resp
-                      let sci = HTTP.statusCode status
-                      logDebugNS fetcherName $ "Got response for " <> T.pack (show uri) <> ": " <> T.pack (show sci)
-                      -- If the status code is not in the 2XX range, add it to the results
-                      unless (200 <= sci && sci < 300) $ atomically $ modifyTVar' results $ M.insert uri (ResultStatus status)
-                      -- Only recurse into the page if the page has the same root.
-                      when (uriAuthority uri == uriAuthority root) $ do
-                        -- Find all uris
-                        let tags = parseTagsOptions parseOptionsFast body
-                        when checkFragments $ do
-                          case uriFragment uri of
-                            "" -> pure ()
-                            '#' : f -> do
-                              let fragmentLinkGood = LB.fromStrict (TE.encodeUtf8 (T.pack f)) `elem` concatMap tagIdOrName tags
-                              when (not fragmentLinkGood) $ atomically $ modifyTVar' results $ M.insert uri (ResultFragmentMissing (uriFragment uri))
-                            _ -> pure ()
+              -- Check if the uri has been seen already
+              alreadySeen <- atomically $ S.member uri <$> readTVar seen
+              if alreadySeen
+                then -- We've already seen it, don't do anything.
+                -- logDebugN $ "Not fetching again: " <> T.pack (show uri)
+                  pure ()
+                else do
+                  -- We haven't seen it yet. Mark it as seen.
+                  atomically $ modifyTVar' seen $ S.insert uri
+                  -- Create a request
+                  case requestFromURI uri of
+                    Nothing ->
+                      logErrorNS fetcherName $ "Unable to construct a request from this uri: " <> T.pack (show uri)
+                    Just req -> do
+                      let fetchingLog = case maxDepth of
+                            Nothing -> ["Fetching: ", show uri]
+                            Just md -> ["Depth ", show curDepth, "/", show md, " Fetching: ", show uri]
+                      logInfoNS fetcherName $ T.pack $ concat $ fetchingLog
+                      -- Do the actual fetch
+                      errOrResp <- liftIO $ retryHTTP req $ httpLbs req man
+                      case errOrResp of
+                        Left err -> do
+                          logDebugNS fetcherName $ "Got exception for " <> T.pack (show uri) <> ": " <> T.pack (show err)
+                          atomically $ modifyTVar' results $ M.insert uri (ResultException err)
+                        Right resp -> do
+                          let body = responseBody resp
+                          let status = responseStatus resp
+                          let sci = HTTP.statusCode status
+                          logDebugNS fetcherName $ "Got response for " <> T.pack (show uri) <> ": " <> T.pack (show sci)
+                          -- If the status code is not in the 2XX range, add it to the results
+                          unless (200 <= sci && sci < 300) $ atomically $ modifyTVar' results $ M.insert uri (ResultStatus status)
+                          -- Only recurse into the page if the page has the same root.
+                          when (uriAuthority uri == uriAuthority root) $ do
+                            -- Find all uris
+                            let tags = parseTagsOptions parseOptionsFast body
+                            when checkFragments $ do
+                              case uriFragment uri of
+                                "" -> pure ()
+                                '#' : f -> do
+                                  let fragmentLinkGood = LB.fromStrict (TE.encodeUtf8 (T.pack f)) `elem` concatMap tagIdOrName tags
+                                  when (not fragmentLinkGood) $ atomically $ modifyTVar' results $ M.insert uri (ResultFragmentMissing (uriFragment uri))
+                                _ -> pure ()
 
-                        let removeFragment u = u {uriFragment = ""}
-                        let uris =
-                              (if checkFragments then id else map removeFragment) $
-                                mapMaybe (parseURIRelativeTo uri) $
-                                  mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $
-                                    mapMaybe aTagHref tags
-                        let predicate =
-                              if fetchExternal
-                                then const True
-                                else -- Filter out the ones that are not on the same host.
-                                  (== uriAuthority root) . uriAuthority
-                        let urisToAddToQueue = filter predicate uris
-                        atomically $ mapM_ (writeTQueue queue) urisToAddToQueue
+                            let removeFragment u = u {uriFragment = ""}
+                            let uris =
+                                  (if checkFragments then id else map removeFragment) $
+                                    mapMaybe (parseURIRelativeTo uri) $
+                                      mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $
+                                        mapMaybe aTagHref tags
+                            let predicate =
+                                  if fetchExternal
+                                    then const True
+                                    else -- Filter out the ones that are not on the same host.
+                                      (== uriAuthority root) . uriAuthority
+                            let urisToAddToQueue = map (\u -> (u, succ curDepth)) $ filter predicate uris
+                            atomically $ mapM_ (writeTQueue queue) urisToAddToQueue
           -- Filter out the ones that are not on the same host.
           go True
 

@@ -10,7 +10,8 @@ data Flags = Flags
     flagLogLevel :: !(Maybe LogLevel),
     flagFetchers :: !(Maybe Int),
     flagExternal :: !(Maybe Bool),
-    flagCheckFragments :: !(Maybe Bool)
+    flagCheckFragments :: !(Maybe Bool),
+    flagMaxDepth :: !(Maybe Word)
   }
   deriving (Show, Eq)
 
@@ -33,6 +34,7 @@ data Settings = Settings
     setLogLevel :: !LogLevel,
     setFetchers :: !(Maybe Int),
     setExternal :: !Bool,
-    setCheckFragments :: !Bool
+    setCheckFragments :: !Bool,
+    setMaxDepth :: !(Maybe Word)
   }
   deriving (Show, Eq)
