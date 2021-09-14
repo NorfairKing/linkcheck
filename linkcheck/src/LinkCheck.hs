@@ -62,7 +62,7 @@ runLinkCheck Settings {..} = do
     Just f -> pure f
   let indexes = [0 .. fetchers - 1]
   fetcherStati <- newTVarIO $ IM.fromList $ zip indexes (repeat True)
-  atomically $ writeTQueue queue QueueURI {queueURI = setUri, queueURIDepth = 0}
+  atomically $ writeTQueue queue QueueURI {queueURI = setUri, queueURIDepth = 0, queueURIPath = []}
   runStderrLoggingT $
     filterLogger (\_ ll -> ll >= setLogLevel) $ do
       logInfoN $ "Running with " <> T.pack (show fetchers) <> " fetchers"
@@ -94,17 +94,31 @@ runLinkCheck Settings {..} = do
           )
           resultsList
 
-data Result
-  = ResultException HttpException
-  | ResultStatus HTTP.Status
-  | ResultFragmentMissing String
+data Result = Result
+  { resultReason :: !ResultReason,
+    resultPath :: ![URI]
+  }
+  deriving (Show)
+
+data ResultReason
+  = ResultReasonException HttpException
+  | ResultReasonStatus HTTP.Status
+  | ResultReasonFragmentMissing String
   deriving (Show)
 
 prettyResult :: Result -> String
-prettyResult = \case
-  ResultException e -> displayException e
-  ResultStatus status -> show status
-  ResultFragmentMissing f -> "Fragment name or id not found: #" <> f
+prettyResult Result {..} = do
+  unlines $
+    ( unwords ["Reason:", prettyResultReason resultReason] :
+      "Path:" :
+      map show resultPath
+    )
+
+prettyResultReason :: ResultReason -> String
+prettyResultReason = \case
+  ResultReasonException e -> displayException e
+  ResultReasonStatus status -> show status
+  ResultReasonFragmentMissing f -> "Fragment name or id not found: #" <> f
 
 data WorkerSettings = WorkerSettings
   { workerSetExternal :: !Bool,
@@ -122,7 +136,8 @@ data WorkerSettings = WorkerSettings
 
 data QueueURI = QueueURI
   { queueURI :: !URI,
-    queueURIDepth :: !Word
+    queueURIDepth :: !Word,
+    queueURIPath :: ![URI]
   }
 
 worker ::
@@ -180,12 +195,14 @@ worker WorkerSettings {..} = go True
                         Nothing -> ["Fetching: ", show queueURI]
                         Just md -> ["Depth ", show queueURIDepth, "/", show md, "; Fetching: ", show queueURI]
                   logInfoNS fetcherName $ T.pack $ concat $ fetchingLog
+                  let insertResult reason =
+                        atomically $ modifyTVar' workerSetResultsMap $ M.insert queueURI Result {resultReason = reason, resultPath = queueURIPath}
                   -- Do the actual fetch
                   errOrResp <- liftIO $ retryHTTP req $ httpLbs req workerSetHTTPManager
                   case errOrResp of
                     Left err -> do
                       logDebugNS fetcherName $ "Got exception for " <> T.pack (show queueURI) <> ": " <> T.pack (show err)
-                      atomically $ modifyTVar' workerSetResultsMap $ M.insert queueURI (ResultException err)
+                      insertResult $ ResultReasonException err
                     Right resp -> do
                       let body = responseBody resp
                       let status = responseStatus resp
@@ -193,7 +210,7 @@ worker WorkerSettings {..} = go True
                       logDebugNS fetcherName $ "Got response for " <> T.pack (show queueURI) <> ": " <> T.pack (show sci)
 
                       -- If the status code is not in the 2XX range, add it to the results
-                      unless (200 <= sci && sci < 300) $ atomically $ modifyTVar' workerSetResultsMap $ M.insert queueURI (ResultStatus status)
+                      unless (200 <= sci && sci < 300) $ insertResult $ ResultReasonStatus status
 
                       -- Only recurse into the page if we're not deep enough already
                       let shouldRecurseByDepth = case workerSetMaxDepth of
@@ -213,7 +230,7 @@ worker WorkerSettings {..} = go True
                             "" -> pure ()
                             '#' : f -> do
                               let fragmentLinkGood = LB.fromStrict (TE.encodeUtf8 (T.pack f)) `elem` concatMap tagIdOrName tags
-                              when (not fragmentLinkGood) $ atomically $ modifyTVar' workerSetResultsMap $ M.insert queueURI (ResultFragmentMissing (uriFragment queueURI))
+                              when (not fragmentLinkGood) $ insertResult $ ResultReasonFragmentMissing (uriFragment queueURI)
                             _ -> pure ()
 
                         let removeFragment u = u {uriFragment = ""}
@@ -228,7 +245,7 @@ worker WorkerSettings {..} = go True
                                 then const True
                                 else -- Filter out the ones that are not on the same host.
                                   (== uriAuthority workerSetRoot) . uriAuthority
-                        let urisToAddToQueue = map (\u -> QueueURI {queueURI = u, queueURIDepth = succ queueURIDepth}) $ filter predicate uris
+                        let urisToAddToQueue = map (\u -> QueueURI {queueURI = u, queueURIDepth = succ queueURIDepth, queueURIPath = queueURI : queueURIPath}) $ filter predicate uris
                         atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
           -- Filter out the ones that are not on the same host.
           go True
