@@ -108,7 +108,7 @@ data ResultReason
 
 prettyResult :: Result -> String
 prettyResult Result {..} = do
-  unlines $
+  unlines
     ( unwords ["Reason:", prettyResultReason resultReason] :
       "Trace:" :
       map show resultTrace
@@ -194,7 +194,7 @@ worker WorkerSettings {..} = go True
                   let fetchingLog = case workerSetMaxDepth of
                         Nothing -> ["Fetching: ", show queueURI]
                         Just md -> ["Depth ", show queueURIDepth, "/", show md, "; Fetching: ", show queueURI]
-                  logInfoNS fetcherName $ T.pack $ concat $ fetchingLog
+                  logInfoNS fetcherName $ T.pack $ concat fetchingLog
                   let insertResult reason =
                         atomically $ modifyTVar' workerSetResultsMap $ M.insert queueURI Result {resultReason = reason, resultTrace = queueURITrace}
                   -- Do the actual fetch
