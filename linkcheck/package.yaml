@@ -20,6 +20,7 @@ library:
     - http-client-tls
     - http-types
     - monad-logger
+    - mtl
     - network-uri
     - optparse-applicative
     - path
@@ -28,7 +29,6 @@ library:
     - stm
     - tagsoup
     - text
-    - unliftio
     - unliftio
     - yamlparse-applicative
 

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d7fdfccbcc7e6a7588920a054348be01ce112b62ca819e02c7477e0b5f5e25a0
+-- hash: 11ae34f9e965742fe87219cafda0c50f2e16e9a44a8ad98270027a82f2f3c816
 
 name:           linkcheck
 version:        0.0.0.0
@@ -39,6 +39,7 @@ library
     , http-client-tls
     , http-types
     , monad-logger
+    , mtl
     , network-uri
     , optparse-applicative
     , path
