@@ -8,7 +8,6 @@ where
 
 import Control.Monad.Logger
 import Data.Maybe
-import qualified Env
 import LinkCheck.OptParse.Types
 import Network.URI
 import Options.Applicative
@@ -18,15 +17,10 @@ import Text.Read
 getSettings :: IO Settings
 getSettings = do
   flags <- getFlags
-  env <- getEnvironment
-  config <- getConfig flags env
-  deriveSettings flags env config
+  deriveSettings flags
 
-getConfig :: Flags -> Environment -> IO (Maybe Configuration)
-getConfig _ _ = pure Nothing
-
-deriveSettings :: Flags -> Environment -> Maybe Configuration -> IO Settings
-deriveSettings Flags {..} Environment _ = do
+deriveSettings :: Flags -> IO Settings
+deriveSettings Flags {..} = do
   let setUri = flagUri
       setLogLevel = fromMaybe LevelInfo flagLogLevel
       setFetchers = flagFetchers
@@ -110,9 +104,3 @@ parseFlags =
 
 parseLogLevel :: String -> Maybe LogLevel
 parseLogLevel s = readMaybe $ "Level" <> s
-
-getEnvironment :: IO Environment
-getEnvironment = Env.parse (Env.header "Environment") environmentParser
-
-environmentParser :: Env.Parser Env.Error Environment
-environmentParser = pure Environment

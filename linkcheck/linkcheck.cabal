@@ -1,18 +1,18 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.34.5.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 92419db276e7eafd43fe58f3ac4bcb79211ce34ca21e114542cd51791d2f9093
+-- hash: 17412a1b9b94827c87270ec493b5129c0a63b3f8c117874557b9b3d1641698e0
 
 name:           linkcheck
-version:        0.1.0.0
+version:        0.0.0.0
 homepage:       https://github.com/NorfairKing/linkcheck#readme
 bug-reports:    https://github.com/NorfairKing/linkcheck/issues
 author:         Tom Sydney Kerckhove
 maintainer:     syd@cs-syd.eu
-copyright:      Copyright (c) 2020 Tom Sydney Kerckhove
+copyright:      Copyright (c) 2020-2022 Tom Sydney Kerckhove
 build-type:     Simple
 
 source-repository head
@@ -34,7 +34,6 @@ library
     , bytestring
     , conduit
     , containers
-    , envparse
     , http-client
     , http-client-tls
     , http-types
@@ -49,7 +48,6 @@ library
     , tagsoup
     , text
     , unliftio
-    , yamlparse-applicative
   default-language: Haskell2010
 
 executable linkcheck

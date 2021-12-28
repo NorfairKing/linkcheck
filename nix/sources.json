@@ -5,10 +5,10 @@
         "homepage": "",
         "owner": "hercules-ci",
         "repo": "gitignore.nix",
-        "rev": "211907489e9f198594c0eb0ca9256a1949c9d412",
-        "sha256": "06j7wpvj54khw0z10fjyi31kpafkr6hi1k0di13k1xp8kywvfyx8",
+        "rev": "5b9e0ff9d3b551234b4f3eb3983744fa354b17f1",
+        "sha256": "01l4phiqgw9xgaxr6jr456qmww6kzghqrnbc7aiiww3h6db5vw53",
         "type": "tarball",
-        "url": "https://github.com/hercules-ci/gitignore.nix/archive/211907489e9f198594c0eb0ca9256a1949c9d412.tar.gz",
+        "url": "https://github.com/hercules-ci/gitignore.nix/archive/5b9e0ff9d3b551234b4f3eb3983744fa354b17f1.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "niv": {
@@ -17,22 +17,22 @@
         "homepage": "https://github.com/nmattia/niv",
         "owner": "nmattia",
         "repo": "niv",
-        "rev": "af958e8057f345ee1aca714c1247ef3ba1c15f5e",
-        "sha256": "1qjavxabbrsh73yck5dcq8jggvh3r2jkbr6b5nlz5d9yrqm9255n",
+        "rev": "5830a4dd348d77e39a0f3c4c762ff2663b602d4c",
+        "sha256": "1d3lsrqvci4qz2hwjrcnd8h5vfkg8aypq3sjd4g3izbc8frwz5sm",
         "type": "tarball",
-        "url": "https://github.com/nmattia/niv/archive/af958e8057f345ee1aca714c1247ef3ba1c15f5e.tar.gz",
+        "url": "https://github.com/nmattia/niv/archive/5830a4dd348d77e39a0f3c4c762ff2663b602d4c.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
-        "branch": "20.09",
+        "branch": "nixos-21.11",
         "description": "Nix Packages collection",
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "cd63096d6d887d689543a0b97743d28995bc9bc3",
-        "sha256": "1wg61h4gndm3vcprdcg7rc4s1v3jkm5xd7lw8r2f67w502y94gcy",
+        "rev": "d887ac7aee92e8fc54dde9060d60d927afae9d69",
+        "sha256": "1bpgfv45b1yvrgpwdgc4fm4a6sav198yd41bsrvlmm3jn2wi6qx5",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/cd63096d6d887d689543a0b97743d28995bc9bc3.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/d887ac7aee92e8fc54dde9060d60d927afae9d69.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "pre-commit-hooks": {
@@ -41,34 +41,10 @@
         "homepage": "",
         "owner": "cachix",
         "repo": "pre-commit-hooks.nix",
-        "rev": "09fb9e425111878b58223852e87ed85e8a189e0d",
-        "sha256": "0adfbgknb9xpgzmiwi4z5pnnw4n5gzjm2gxzria1vabyvqzxbn6s",
+        "rev": "ff9c0b459ddc4b79c06e19d44251daa8e9cd1746",
+        "sha256": "0z09ndxvbk6w4j28lzgj0b9qqcbwrvr58c0xsm0rf0xsdipi0nwf",
         "type": "tarball",
-        "url": "https://github.com/cachix/pre-commit-hooks.nix/archive/09fb9e425111878b58223852e87ed85e8a189e0d.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "safe-coloured-text": {
-        "branch": "master",
-        "description": null,
-        "homepage": null,
-        "owner": "NorfairKing",
-        "repo": "safe-coloured-text",
-        "rev": "d1fa5c8f9a533f52df75356a45216d2ff48a016e",
-        "sha256": "1gkwqyk2zclxkdij9qc6qx53cismjy0jjc10dqi52wg6s6xvywkh",
-        "type": "tarball",
-        "url": "https://github.com/NorfairKing/safe-coloured-text/archive/d1fa5c8f9a533f52df75356a45216d2ff48a016e.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "yamlparse-applicative": {
-        "branch": "master",
-        "description": "An optparse-applicative -style explainable yaml parser",
-        "homepage": "https://cs-syd.eu/posts/2020-06-28-yamlparse-applicative",
-        "owner": "NorfairKing",
-        "repo": "yamlparse-applicative",
-        "rev": "7a329d06ffa45595963cf98f34910887115eb471",
-        "sha256": "0mffjivg17qbyap6a4g33m9dpkf1v10l5wczwar0b21d642bz6w4",
-        "type": "tarball",
-        "url": "https://github.com/NorfairKing/yamlparse-applicative/archive/7a329d06ffa45595963cf98f34910887115eb471.tar.gz",
+        "url": "https://github.com/cachix/pre-commit-hooks.nix/archive/ff9c0b459ddc4b79c06e19d44251daa8e9cd1746.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

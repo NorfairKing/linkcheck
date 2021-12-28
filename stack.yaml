@@ -1,17 +1,6 @@
-resolver: lts-16.12
+resolver: lts-18.16
 packages:
 - linkcheck
-extra-deps:
-- envparse-0.4.1@sha256:989902e6368532548f61de1fa245ad2b39176cddd8743b20071af519a709ce30,2842
-- github: NorfairKing/yamlparse-applicative
-  commit: 7a329d06ffa45595963cf98f34910887115eb471
-  subdirs:
-    - yamlparse-applicative
-- github: NorfairKing/safe-coloured-text
-  commit: d1fa5c8f9a533f52df75356a45216d2ff48a016e
-  subdirs:
-    - safe-coloured-text
 nix:
   shell-file: shell.nix
-  add-gc-roots: true
 

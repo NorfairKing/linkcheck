@@ -1,15 +1,13 @@
 let
-  pkgs = import ./nix/pkgs.nix;
-  pre-commit = import ./nix/pre-commit.nix;
+  sources = import ./nix/sources.nix;
+  pkgs = import ./nix/pkgs.nix { inherit sources; };
+  pre-commit = import ./nix/pre-commit.nix { inherit sources; };
 in
 pkgs.haskell.lib.buildStackProject {
-  name = "sydtest-shell";
+  name = "linkcheck-shell";
   buildInputs = with pkgs; [
-    niv
+    (import sources.niv { inherit pkgs; }).niv
     zlib
   ] ++ pre-commit.tools;
-  shellHook = ''
-    export TMPDIR=/tmp
-    ${pre-commit.check.shellHook}
-  '';
+  shellHook = pre-commit.run.shellHook;
 }

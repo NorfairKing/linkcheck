@@ -1,30 +1,17 @@
 final: previous:
 with final.haskell.lib;
 
+let
+  linkcheck =
+    generateOptparseApplicativeCompletion "linkcheck" (
+      buildStrictly (
+        disableLibraryProfiling (
+          final.haskellPackages.callCabal2nixWithOptions "linkcheck" (final.gitignoreSource (../linkcheck)) "--no-hpack" { }
+        )
+      ));
+in
 {
-  linkCheckPackages =
-    let
-      linkCheckPkg =
-        name:
-        doBenchmark (
-          addBuildDepend
-            (
-              failOnAllWarnings (
-                disableLibraryProfiling (
-                  final.haskellPackages.callCabal2nix name (final.gitignoreSource (../. + "/${name}")) { }
-                )
-              )
-            )
-            (final.haskellPackages.autoexporter)
-        );
-      linkCheckPkgWithComp =
-        exeName: name:
-        generateOptparseApplicativeCompletion exeName (linkCheckPkg name);
-      linkCheckPkgWithOwnComp = name: linkCheckPkgWithComp name name;
-    in
-    {
-      "linkcheck" = linkCheckPkgWithOwnComp "linkcheck";
-    };
+  linkcheck = justStaticExecutables linkcheck;
   haskellPackages =
     previous.haskellPackages.override (
       old:
@@ -40,7 +27,7 @@ with final.haskell.lib;
             )
             (
               self: super:
-                final.linkCheckPackages
+                { inherit linkcheck; }
             );
       }
     );
