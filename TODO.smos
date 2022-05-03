@@ -1,0 +1,13 @@
+version: 2.0.0
+value:
+- entry: Linkcheck
+  forest:
+  - header: Make it possible to configure specific external domains that are allowed
+    contents: This makes sense because then I can make sure that my links to the smos
+      docs site keep working
+  - Fail early if the server is down for the seed
+  - header: check that anchors exist
+    contents: this makes sense because then I can check that my docs site anchors
+      still work
+  - make it possible to choose a free port for linkchecking
+  - Cache fetches
