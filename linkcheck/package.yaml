@@ -18,6 +18,7 @@ library:
     - http-client
     - http-client-tls
     - http-types
+    - lrucache
     - monad-logger
     - mtl
     - network-uri

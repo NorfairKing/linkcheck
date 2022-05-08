@@ -10,11 +10,15 @@ module LinkCheck
 where
 
 import Control.Concurrent
+import Control.Concurrent.STM (stateTVar)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Control.Retry
+import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
+import Data.Cache.LRU (LRU, newLRU)
+import qualified Data.Cache.LRU as LRU
 import Data.IntMap (IntMap)
 import qualified Data.IntMap.Strict as IM
 import Data.Map (Map)
@@ -25,6 +29,7 @@ import qualified Data.Set as S
 import Data.String
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import Data.Tuple
 import Data.Version
 import LinkCheck.OptParse
 import Network.HTTP.Client as HTTP
@@ -56,6 +61,7 @@ runLinkCheck Settings {..} = do
   man <- liftIO $ HTTP.newManager managerSets
   queue <- newTQueueIO
   seen <- newTVarIO S.empty
+  cache <- newTVarIO $ newLRU Nothing -- TODO make it possible to configure bounds
   results <- newTVarIO M.empty
   fetchers <- case setFetchers of
     Nothing -> getNumCapabilities
@@ -76,6 +82,7 @@ runLinkCheck Settings {..} = do
               workerSetHTTPManager = man,
               workerSetURIQueue = queue,
               workerSetSeenSet = seen,
+              workerSetCache = cache,
               workerSetResultsMap = results,
               workerSetStatusMap = fetcherStati,
               workerSetTotalFetchers = fetchers,
@@ -128,6 +135,7 @@ data WorkerSettings = WorkerSettings
     workerSetHTTPManager :: !HTTP.Manager,
     workerSetURIQueue :: !(TQueue QueueURI),
     workerSetSeenSet :: !(TVar (Set URI)),
+    workerSetCache :: !(TVar (LRU URI (HTTP.Response SB.ByteString))),
     workerSetResultsMap :: !(TVar (Map URI Result)),
     workerSetStatusMap :: !(TVar (IntMap Bool)),
     workerSetTotalFetchers :: !Int,
@@ -186,67 +194,94 @@ worker WorkerSettings {..} = go True
             else do
               -- We haven't seen it yet. Mark it as seen.
               atomically $ modifyTVar' workerSetSeenSet $ S.insert queueURI
-              -- Create a request
-              case requestFromURI queueURI of
-                Nothing ->
-                  logErrorNS fetcherName $ "Unable to construct a request from this uri: " <> T.pack (show queueURI)
-                Just req -> do
-                  let fetchingLog = case workerSetMaxDepth of
-                        Nothing -> ["Fetching: ", show queueURI]
-                        Just md -> ["Depth ", show queueURIDepth, "/", show md, "; Fetching: ", show queueURI]
-                  logInfoNS fetcherName $ T.pack $ concat fetchingLog
-                  let insertResult reason =
-                        atomically $ modifyTVar' workerSetResultsMap $ M.insert queueURI Result {resultReason = reason, resultTrace = queueURITrace}
-                  -- Do the actual fetch
-                  errOrResp <- liftIO $ retryHTTP req $ httpLbs req workerSetHTTPManager
-                  case errOrResp of
-                    Left err -> do
-                      logDebugNS fetcherName $ "Got exception for " <> T.pack (show queueURI) <> ": " <> T.pack (show err)
-                      insertResult $ ResultReasonException err
-                    Right resp -> do
-                      let body = responseBody resp
-                      let status = responseStatus resp
-                      let sci = HTTP.statusCode status
-                      logDebugNS fetcherName $ "Got response for " <> T.pack (show queueURI) <> ": " <> T.pack (show sci)
+              -- Check if the response is cached
+              let cacheURI = queueURI {uriFragment = ""}
+              mCachedResponse <- atomically $ stateTVar workerSetCache $ swap . LRU.lookup cacheURI
+              let insertResult reason =
+                    atomically $
+                      modifyTVar' workerSetResultsMap $
+                        M.insert
+                          queueURI
+                          Result
+                            { resultReason = reason,
+                              resultTrace = queueURITrace
+                            }
+              mResp <- case mCachedResponse of
+                Just cachedResponse -> pure $ Just cachedResponse
+                Nothing -> do
+                  -- Create a request
+                  case requestFromURI queueURI of
+                    Nothing -> do
+                      logErrorNS fetcherName $ "Unable to construct a request from this uri: " <> T.pack (show queueURI)
+                      pure Nothing
+                    Just req -> do
+                      let fetchingLog = case workerSetMaxDepth of
+                            Nothing -> ["Fetching: ", show queueURI]
+                            Just md -> ["Depth ", show queueURIDepth, "/", show md, "; Fetching: ", show queueURI]
+                      logInfoNS fetcherName $ T.pack $ concat fetchingLog
+                      -- Do the actual fetch
+                      errOrResp <- liftIO $ retryHTTP req $ httpLbs req workerSetHTTPManager
+                      case errOrResp of
+                        -- Something went wrong.
+                        Left err -> do
+                          logDebugNS fetcherName $ "Got exception for " <> T.pack (show queueURI) <> ": " <> T.pack (show err)
+                          insertResult $ ResultReasonException err
+                          pure Nothing
+                        -- Got a response
+                        Right resp -> do
+                          let status = responseStatus resp
+                          let sci = HTTP.statusCode status
+                          logDebugNS fetcherName $ "Got response for " <> T.pack (show queueURI) <> ": " <> T.pack (show sci)
+                          -- Read the entire response
+                          let resp' = LB.toStrict <$> resp
+                          -- Insert it into the cache
+                          atomically $ modifyTVar' workerSetCache $ LRU.insert cacheURI resp'
+                          pure $ Just resp'
+              case mResp of
+                Nothing -> pure ()
+                Just resp -> do
+                  let body = responseBody resp
+                  let status = responseStatus resp
+                  let sci = HTTP.statusCode status
 
-                      -- If the status code is not in the 2XX range, add it to the results
-                      unless (200 <= sci && sci < 300) $ insertResult $ ResultReasonStatus status
+                  -- If the status code is not in the 2XX range, add it to the results
+                  unless (200 <= sci && sci < 300) $ insertResult $ ResultReasonStatus status
 
-                      -- Only recurse into the page if we're not deep enough already
-                      let shouldRecurseByDepth = case workerSetMaxDepth of
-                            Nothing -> True
-                            Just md -> queueURIDepth < md
+                  -- Only recurse into the page if we're not deep enough already
+                  let shouldRecurseByDepth = case workerSetMaxDepth of
+                        Nothing -> True
+                        Just md -> queueURIDepth < md
 
-                      -- Only recurse into the page if the page has the same root.
-                      let shouldRecurseByAuthority = uriAuthority queueURI == uriAuthority workerSetRoot
+                  -- Only recurse into the page if the page has the same root.
+                  let shouldRecurseByAuthority = uriAuthority queueURI == uriAuthority workerSetRoot
 
-                      let shouldRecurse = shouldRecurseByDepth && shouldRecurseByAuthority
+                  let shouldRecurse = shouldRecurseByDepth && shouldRecurseByAuthority
 
-                      when shouldRecurse $ do
-                        -- Find all uris
-                        let tags = parseTagsOptions parseOptionsFast body
-                        when workerSetCheckFragments $ do
-                          case uriFragment queueURI of
-                            "" -> pure ()
-                            '#' : f -> do
-                              let fragmentLinkGood = LB.fromStrict (TE.encodeUtf8 (T.pack f)) `elem` concatMap tagIdOrName tags
-                              when (not fragmentLinkGood) $ insertResult $ ResultReasonFragmentMissing (uriFragment queueURI)
-                            _ -> pure ()
+                  when shouldRecurse $ do
+                    -- Find all uris
+                    let tags = parseTagsOptions parseOptionsFast body
+                    when workerSetCheckFragments $ do
+                      case uriFragment queueURI of
+                        "" -> pure ()
+                        '#' : f -> do
+                          let fragmentLinkGood = TE.encodeUtf8 (T.pack f) `elem` concatMap tagIdOrName tags
+                          when (not fragmentLinkGood) $ insertResult $ ResultReasonFragmentMissing (uriFragment queueURI)
+                        _ -> pure ()
 
-                        let removeFragment u = u {uriFragment = ""}
-                        let uris =
-                              (if workerSetCheckFragments then id else map removeFragment) $
-                                mapMaybe (parseURIRelativeTo queueURI) $
-                                  mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8' . LB.toStrict) $
-                                    mapMaybe aTagHref tags
+                    let removeFragment u = u {uriFragment = ""}
+                    let uris =
+                          (if workerSetCheckFragments then id else map removeFragment) $
+                            mapMaybe (parseURIRelativeTo queueURI) $
+                              mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8') $
+                                mapMaybe aTagHref tags
 
-                        let predicate =
-                              if workerSetExternal
-                                then const True
-                                else -- Filter out the ones that are not on the same host.
-                                  (== uriAuthority workerSetRoot) . uriAuthority
-                        let urisToAddToQueue = map (\u -> QueueURI {queueURI = u, queueURIDepth = succ queueURIDepth, queueURITrace = queueURI : queueURITrace}) $ filter predicate uris
-                        atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
+                    let predicate =
+                          if workerSetExternal
+                            then const True
+                            else -- Filter out the ones that are not on the same host.
+                              (== uriAuthority workerSetRoot) . uriAuthority
+                    let urisToAddToQueue = map (\u -> QueueURI {queueURI = u, queueURIDepth = succ queueURIDepth, queueURITrace = queueURI : queueURITrace}) $ filter predicate uris
+                    atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
           go True
 
 parseURIRelativeTo :: URI -> String -> Maybe URI

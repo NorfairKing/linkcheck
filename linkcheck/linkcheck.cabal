@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.5.
+-- This file has been generated from package.yaml by hpack version 0.34.7.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 17412a1b9b94827c87270ec493b5129c0a63b3f8c117874557b9b3d1641698e0
+-- hash: beb06f443d49442154c6d94bbcb6aca17d26d7948330303148c71aeab12633c0
 
 name:           linkcheck
 version:        0.0.0.0
@@ -37,6 +37,7 @@ library
     , http-client
     , http-client-tls
     , http-types
+    , lrucache
     , monad-logger
     , mtl
     , network-uri
