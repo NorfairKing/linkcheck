@@ -208,7 +208,9 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                               resultTrace = queueURITrace
                             }
               mResp <- case mCachedResponse of
-                Just cachedResponse -> pure $ Just cachedResponse
+                Just cachedResponse -> do
+                  logInfoN $ T.pack $ unwords ["Not fetching because it's already cached:", show cacheURI]
+                  pure $ Just cachedResponse
                 Nothing -> do
                   -- Create a request
                   case requestFromURI queueURI of
@@ -281,7 +283,16 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                             then const True
                             else -- Filter out the ones that are not on the same host.
                               (== uriAuthority workerSetRoot) . uriAuthority
-                    let urisToAddToQueue = map (\u -> QueueURI {queueURI = u, queueURIDepth = succ queueURIDepth, queueURITrace = queueURI : queueURITrace}) $ filter predicate uris
+                    let urisToAddToQueue =
+                          map
+                            ( \u ->
+                                QueueURI
+                                  { queueURI = u,
+                                    queueURIDepth = succ queueURIDepth,
+                                    queueURITrace = queueURI : queueURITrace
+                                  }
+                            )
+                            $ filter predicate uris
                     atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
           go True
 
