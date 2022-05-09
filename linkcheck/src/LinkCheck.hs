@@ -217,7 +217,7 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
               atomically $ modifyTVar' workerSetSeenSet $ S.insert queueURI
               -- Check if the response is cached
               let cacheURI = queueURI {uriFragment = ""}
-              mCachedResponse <- atomically $ stateTVar workerSetCache $ swap . LRU.lookup cacheURI
+              mCachedResult <- atomically $ stateTVar workerSetCache $ swap . LRU.lookup cacheURI
               let insertResult reason =
                     atomically $
                       modifyTVar' workerSetResultsMap $
@@ -227,7 +227,9 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                             { resultReason = reason,
                               resultTrace = queueURITrace
                             }
-              mResp <- case mCachedResponse of
+              -- Check if we have the fragments cached
+              mResp <- case mCachedResult of
+                -- Found in cache
                 Just cachedResponse -> do
                   logInfoN $
                     T.pack $
@@ -236,9 +238,11 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                           show queueURI
                         ]
                   pure $ Just cachedResponse
+                -- Not found in cache
                 Nothing -> do
                   -- Create a request
                   case requestFromURI queueURI of
+                    -- Making the request failed
                     Nothing -> do
                       logErrorN $
                         T.pack $
@@ -247,7 +251,9 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                               show queueURI
                             ]
                       pure Nothing
+                    -- Making the request succeeded
                     Just req -> do
+                      -- Do the actual fetch
                       let fetchingLog = case workerSetMaxDepth of
                             Nothing ->
                               [ "Fetching: ",
@@ -262,10 +268,9 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                                 show queueURI
                               ]
                       logInfoN $ T.pack $ concat fetchingLog
-                      -- Do the actual fetch
                       errOrResp <- liftIO $ retryHTTP req $ httpLbs req workerSetHTTPManager
                       case errOrResp of
-                        -- Something went wrong.
+                        -- Something went wrong during the fetch.
                         Left err -> do
                           logDebugN $
                             T.pack $
@@ -276,6 +281,7 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                                 ]
                           insertResult $ ResultReasonException err
                           pure Nothing
+
                         -- Got a response
                         Right resp -> do
                           let status = responseStatus resp
@@ -294,9 +300,45 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                           let body = LB.toStrict $ responseBody resp
                           let tags = parseTagsOptions parseOptionsFast body
 
-                          -- Insert into the cache
+                          -- Only recurse into the page if we're not deep enough already
+                          let shouldRecurseByDepth = case workerSetMaxDepth of
+                                Nothing -> True
+                                Just md -> queueURIDepth < md
+
+                          -- Only recurse into the page if the page has the same root.
+                          let shouldRecurseByAuthority = uriAuthority queueURI == uriAuthority workerSetRoot
+
+                          let shouldRecurse = shouldRecurseByDepth && shouldRecurseByAuthority
+
+                          when shouldRecurse $ do
+                            let removeFragment u = u {uriFragment = ""}
+                            let uris =
+                                  (if workerSetCheckFragments then id else map removeFragment) $
+                                    mapMaybe (parseURIRelativeTo queueURI) $
+                                      mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8') $
+                                        mapMaybe aTagHref tags
+
+                            let predicate =
+                                  if workerSetExternal
+                                    then const True
+                                    else -- Filter out the ones that are not on the same host.
+                                      (== uriAuthority workerSetRoot) . uriAuthority
+                            let urisToAddToQueue =
+                                  map
+                                    ( \u ->
+                                        QueueURI
+                                          { queueURI = u,
+                                            queueURIDepth = succ queueURIDepth,
+                                            queueURITrace = queueURI : queueURITrace
+                                          }
+                                    )
+                                    $ filter predicate uris
+                            atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
+
+                          -- Insert the fragments into the cache.
                           atomically $ modifyTVar' workerSetCache $ LRU.insert cacheURI tags
                           pure $ Just tags
+
               case mResp of
                 Nothing -> pure ()
                 Just tags -> do
@@ -308,41 +350,6 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                         let fragmentLinkGood = TE.encodeUtf8 (T.pack f) `elem` concatMap tagIdOrName tags
                         when (not fragmentLinkGood) $ insertResult $ ResultReasonFragmentMissing (uriFragment queueURI)
                       _ -> pure ()
-
-                  -- Only recurse into the page if we're not deep enough already
-                  let shouldRecurseByDepth = case workerSetMaxDepth of
-                        Nothing -> True
-                        Just md -> queueURIDepth < md
-
-                  -- Only recurse into the page if the page has the same root.
-                  let shouldRecurseByAuthority = uriAuthority queueURI == uriAuthority workerSetRoot
-
-                  let shouldRecurse = shouldRecurseByDepth && shouldRecurseByAuthority
-
-                  when shouldRecurse $ do
-                    let removeFragment u = u {uriFragment = ""}
-                    let uris =
-                          (if workerSetCheckFragments then id else map removeFragment) $
-                            mapMaybe (parseURIRelativeTo queueURI) $
-                              mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8') $
-                                mapMaybe aTagHref tags
-
-                    let predicate =
-                          if workerSetExternal
-                            then const True
-                            else -- Filter out the ones that are not on the same host.
-                              (== uriAuthority workerSetRoot) . uriAuthority
-                    let urisToAddToQueue =
-                          map
-                            ( \u ->
-                                QueueURI
-                                  { queueURI = u,
-                                    queueURIDepth = succ queueURIDepth,
-                                    queueURITrace = queueURI : queueURITrace
-                                  }
-                            )
-                            $ filter predicate uris
-                    atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
           go True
 
 addFetcherNameToLog :: Text -> LoggingT m a -> LoggingT m a
