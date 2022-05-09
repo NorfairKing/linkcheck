@@ -27,6 +27,7 @@ deriveSettings Flags {..} = do
       setExternal = fromMaybe False flagExternal
       setCheckFragments = fromMaybe False flagCheckFragments
       setMaxDepth = flagMaxDepth
+      setCacheSize = flagCacheSize
   pure Settings {..}
 
 getFlags :: IO Flags
@@ -98,6 +99,15 @@ parseFlags =
             ( mconcat
                 [ long "max-depth",
                   help "Stop looking after reaching this number of links from the root"
+                ]
+            )
+        )
+      <*> optional
+        ( option
+            auto
+            ( mconcat
+                [ long "cache-size",
+                  help "Cache this many requests' fragments."
                 ]
             )
         )

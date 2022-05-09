@@ -62,7 +62,13 @@ runLinkCheck Settings {..} = do
   man <- liftIO $ HTTP.newManager managerSets
   queue <- newTQueueIO
   seen <- newTVarIO S.empty
-  cache <- newTVarIO $ newLRU Nothing -- TODO make it possible to configure bounds
+  mCache <-
+    if setCheckFragments
+      then
+        fmap Just $
+          newTVarIO $
+            newLRU $ fromIntegral <$> setCacheSize
+      else pure Nothing -- no need to cache anything if we don't check fragments anyway.
   results <- newTVarIO M.empty
   fetchers <- case setFetchers of
     Nothing -> getNumCapabilities
@@ -89,7 +95,7 @@ runLinkCheck Settings {..} = do
               workerSetHTTPManager = man,
               workerSetURIQueue = queue,
               workerSetSeenSet = seen,
-              workerSetCache = cache,
+              workerSetCache = mCache,
               workerSetResultsMap = results,
               workerSetStatusMap = fetcherStati,
               workerSetTotalFetchers = fetchers,
@@ -142,7 +148,7 @@ data WorkerSettings = WorkerSettings
     workerSetHTTPManager :: !HTTP.Manager,
     workerSetURIQueue :: !(TQueue QueueURI),
     workerSetSeenSet :: !(TVar (Set URI)),
-    workerSetCache :: !(TVar (LRU URI [SB.ByteString])),
+    workerSetCache :: !(Maybe (TVar (LRU URI [SB.ByteString]))),
     workerSetResultsMap :: !(TVar (Map URI Result)),
     workerSetStatusMap :: !(TVar (IntMap Bool)),
     workerSetTotalFetchers :: !Int,
@@ -215,9 +221,10 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
             else do
               -- We haven't seen it yet. Mark it as seen.
               atomically $ modifyTVar' workerSetSeenSet $ S.insert queueURI
-              -- Check if the response is cached
-              let cacheURI = queueURI {uriFragment = ""}
-              mCachedResult <- atomically $ stateTVar workerSetCache $ swap . LRU.lookup cacheURI
+
+              -- Helper function for inserting a result.
+              -- We'll need this in both the cached and uncached branches below
+              -- so we'll already define it here.
               let insertResult reason =
                     atomically $
                       modifyTVar' workerSetResultsMap $
@@ -227,6 +234,13 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                             { resultReason = reason,
                               resultTrace = queueURITrace
                             }
+
+              -- Check if the response is cached
+              let cacheURI = queueURI {uriFragment = ""}
+              mCachedResult <- case workerSetCache of
+                Nothing -> pure Nothing -- Can't be cached if there is no cache
+                Just cache -> atomically $ stateTVar cache $ swap . LRU.lookup cacheURI
+
               -- Check if we have the fragments cached
               mResp <- case mCachedResult of
                 -- Found in cache
@@ -339,7 +353,8 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                           let fragments = concatMap tagIdOrName tags
 
                           -- Insert the fragments into the cache.
-                          atomically $ modifyTVar' workerSetCache $ LRU.insert cacheURI fragments
+                          forM_ workerSetCache $ \cache ->
+                            atomically $ modifyTVar' cache $ LRU.insert cacheURI fragments
 
                           pure $ Just fragments
 
