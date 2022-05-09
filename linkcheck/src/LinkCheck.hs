@@ -142,7 +142,7 @@ data WorkerSettings = WorkerSettings
     workerSetHTTPManager :: !HTTP.Manager,
     workerSetURIQueue :: !(TQueue QueueURI),
     workerSetSeenSet :: !(TVar (Set URI)),
-    workerSetCache :: !(TVar (LRU URI (HTTP.Response [Tag SB.ByteString]))),
+    workerSetCache :: !(TVar (LRU URI [Tag SB.ByteString])),
     workerSetResultsMap :: !(TVar (Map URI Result)),
     workerSetStatusMap :: !(TVar (IntMap Bool)),
     workerSetTotalFetchers :: !Int,
@@ -287,20 +287,27 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                                   show queueURI <> ": ",
                                   show sci
                                 ]
+                          -- If the status code is not in the 2XX range, add it to the results
+                          unless (200 <= sci && sci < 300) $ insertResult $ ResultReasonStatus status
+
                           -- Read the entire response and parse tags
-                          let resp' = parseTagsOptions parseOptionsFast . LB.toStrict <$> resp
-                          -- Insert it into the cache
-                          atomically $ modifyTVar' workerSetCache $ LRU.insert cacheURI resp'
-                          pure $ Just resp'
+                          let body = LB.toStrict $ responseBody resp
+                          let tags = parseTagsOptions parseOptionsFast body
+
+                          -- Insert into the cache
+                          atomically $ modifyTVar' workerSetCache $ LRU.insert cacheURI tags
+                          pure $ Just tags
               case mResp of
                 Nothing -> pure ()
-                Just resp -> do
-                  let tags = responseBody resp
-                  let status = responseStatus resp
-                  let sci = HTTP.statusCode status
-
-                  -- If the status code is not in the 2XX range, add it to the results
-                  unless (200 <= sci && sci < 300) $ insertResult $ ResultReasonStatus status
+                Just tags -> do
+                  -- Check that the fragments are in order.
+                  when workerSetCheckFragments $ do
+                    case uriFragment queueURI of
+                      "" -> pure ()
+                      '#' : f -> do
+                        let fragmentLinkGood = TE.encodeUtf8 (T.pack f) `elem` concatMap tagIdOrName tags
+                        when (not fragmentLinkGood) $ insertResult $ ResultReasonFragmentMissing (uriFragment queueURI)
+                      _ -> pure ()
 
                   -- Only recurse into the page if we're not deep enough already
                   let shouldRecurseByDepth = case workerSetMaxDepth of
@@ -313,14 +320,6 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                   let shouldRecurse = shouldRecurseByDepth && shouldRecurseByAuthority
 
                   when shouldRecurse $ do
-                    when workerSetCheckFragments $ do
-                      case uriFragment queueURI of
-                        "" -> pure ()
-                        '#' : f -> do
-                          let fragmentLinkGood = TE.encodeUtf8 (T.pack f) `elem` concatMap tagIdOrName tags
-                          when (not fragmentLinkGood) $ insertResult $ ResultReasonFragmentMissing (uriFragment queueURI)
-                        _ -> pure ()
-
                     let removeFragment u = u {uriFragment = ""}
                     let uris =
                           (if workerSetCheckFragments then id else map removeFragment) $
