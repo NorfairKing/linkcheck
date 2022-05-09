@@ -1,9 +1,15 @@
-name:                linkcheck
-version:             0.0.0.0
-github:              "NorfairKing/linkcheck"
-author:              "Tom Sydney Kerckhove"
-maintainer:          "syd@cs-syd.eu"
-copyright:           "Copyright (c) 2020-2022 Tom Sydney Kerckhove"
+name: linkcheck
+version: 0.1.0.0
+github: "NorfairKing/linkcheck"
+author: "Tom Sydney Kerckhove"
+maintainer: "syd@cs-syd.eu"
+copyright: "Copyright (c) 2020-2022 Tom Sydney Kerckhove"
+license: MIT
+synopsis: Check for broken links in CI
+
+extra-source-files:
+- LICENSE
+- CHANGELOG.md
 
 dependencies:
 - base >= 4.7 && < 5

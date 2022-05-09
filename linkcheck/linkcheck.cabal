@@ -4,16 +4,22 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: beb06f443d49442154c6d94bbcb6aca17d26d7948330303148c71aeab12633c0
+-- hash: 552da3e14c9345725ae9f5e3e956caeb6dbecabee2df7e81c939a9eae9ce2f53
 
 name:           linkcheck
-version:        0.0.0.0
+version:        0.1.0.0
+synopsis:       Check for broken links in CI
 homepage:       https://github.com/NorfairKing/linkcheck#readme
 bug-reports:    https://github.com/NorfairKing/linkcheck/issues
 author:         Tom Sydney Kerckhove
 maintainer:     syd@cs-syd.eu
 copyright:      Copyright (c) 2020-2022 Tom Sydney Kerckhove
+license:        MIT
+license-file:   LICENSE
 build-type:     Simple
+extra-source-files:
+    LICENSE
+    CHANGELOG.md
 
 source-repository head
   type: git
