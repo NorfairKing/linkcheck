@@ -142,7 +142,7 @@ data WorkerSettings = WorkerSettings
     workerSetHTTPManager :: !HTTP.Manager,
     workerSetURIQueue :: !(TQueue QueueURI),
     workerSetSeenSet :: !(TVar (Set URI)),
-    workerSetCache :: !(TVar (LRU URI [Tag SB.ByteString])),
+    workerSetCache :: !(TVar (LRU URI [SB.ByteString])),
     workerSetResultsMap :: !(TVar (Map URI Result)),
     workerSetStatusMap :: !(TVar (IntMap Bool)),
     workerSetTotalFetchers :: !Int,
@@ -335,19 +335,23 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                                     $ filter predicate uris
                             atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
 
+                          -- Compute the fragments
+                          let fragments = concatMap tagIdOrName tags
+
                           -- Insert the fragments into the cache.
-                          atomically $ modifyTVar' workerSetCache $ LRU.insert cacheURI tags
-                          pure $ Just tags
+                          atomically $ modifyTVar' workerSetCache $ LRU.insert cacheURI fragments
+
+                          pure $ Just fragments
 
               case mResp of
                 Nothing -> pure ()
-                Just tags -> do
+                Just fragments -> do
                   -- Check that the fragments are in order.
                   when workerSetCheckFragments $ do
                     case uriFragment queueURI of
                       "" -> pure ()
                       '#' : f -> do
-                        let fragmentLinkGood = TE.encodeUtf8 (T.pack f) `elem` concatMap tagIdOrName tags
+                        let fragmentLinkGood = TE.encodeUtf8 (T.pack f) `elem` fragments
                         when (not fragmentLinkGood) $ insertResult $ ResultReasonFragmentMissing (uriFragment queueURI)
                       _ -> pure ()
           go True
