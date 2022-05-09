@@ -27,6 +27,7 @@ import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.String
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Data.Tuple
@@ -151,7 +152,7 @@ data QueueURI = QueueURI
 worker ::
   WorkerSettings ->
   LoggingT IO ()
-worker WorkerSettings {..} = go True
+worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
   where
     fetcherName = case workerSetTotalFetchers of
       1 -> "fetcher"
@@ -212,26 +213,26 @@ worker WorkerSettings {..} = go True
                   -- Create a request
                   case requestFromURI queueURI of
                     Nothing -> do
-                      logErrorNS fetcherName $ "Unable to construct a request from this uri: " <> T.pack (show queueURI)
+                      logErrorN $ "Unable to construct a request from this uri: " <> T.pack (show queueURI)
                       pure Nothing
                     Just req -> do
                       let fetchingLog = case workerSetMaxDepth of
                             Nothing -> ["Fetching: ", show queueURI]
                             Just md -> ["Depth ", show queueURIDepth, "/", show md, "; Fetching: ", show queueURI]
-                      logInfoNS fetcherName $ T.pack $ concat fetchingLog
+                      logInfoN $ T.pack $ concat fetchingLog
                       -- Do the actual fetch
                       errOrResp <- liftIO $ retryHTTP req $ httpLbs req workerSetHTTPManager
                       case errOrResp of
                         -- Something went wrong.
                         Left err -> do
-                          logDebugNS fetcherName $ "Got exception for " <> T.pack (show queueURI) <> ": " <> T.pack (show err)
+                          logDebugN $ "Got exception for " <> T.pack (show queueURI) <> ": " <> T.pack (show err)
                           insertResult $ ResultReasonException err
                           pure Nothing
                         -- Got a response
                         Right resp -> do
                           let status = responseStatus resp
                           let sci = HTTP.statusCode status
-                          logDebugNS fetcherName $ "Got response for " <> T.pack (show queueURI) <> ": " <> T.pack (show sci)
+                          logDebugN $ "Got response for " <> T.pack (show queueURI) <> ": " <> T.pack (show sci)
                           -- Read the entire response
                           let resp' = LB.toStrict <$> resp
                           -- Insert it into the cache
@@ -283,6 +284,16 @@ worker WorkerSettings {..} = go True
                     let urisToAddToQueue = map (\u -> QueueURI {queueURI = u, queueURIDepth = succ queueURIDepth, queueURITrace = queueURI : queueURITrace}) $ filter predicate uris
                     atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
           go True
+
+addFetcherNameToLog :: Text -> LoggingT m a -> LoggingT m a
+addFetcherNameToLog fetcherName = modLogSource $ \source -> if source == "" then fetcherName else source
+
+modLogSource :: (LogSource -> LogSource) -> LoggingT m a -> LoggingT m a
+modLogSource func (LoggingT mFunc) = LoggingT $ \logFunc ->
+  let newLogFunc loc source level str =
+        let source' = func source
+         in logFunc loc source' level str
+   in mFunc newLogFunc
 
 parseURIRelativeTo :: URI -> String -> Maybe URI
 parseURIRelativeTo root s =
