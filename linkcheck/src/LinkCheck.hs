@@ -72,7 +72,13 @@ runLinkCheck Settings {..} = do
   atomically $ writeTQueue queue QueueURI {queueURI = setUri, queueURIDepth = 0, queueURITrace = []}
   runStderrLoggingT $
     filterLogger (\_ ll -> ll >= setLogLevel) $ do
-      logInfoN $ "Running with " <> T.pack (show fetchers) <> " fetchers"
+      logInfoN $
+        T.pack $
+          unwords
+            [ "Running with",
+              show fetchers,
+              "fetchers"
+            ]
       forConcurrently_ indexes $ \ix ->
         worker
           WorkerSettings
@@ -173,7 +179,12 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
         -- No items on the queue
         Nothing -> do
           -- Set this worker as idle
-          logDebugN $ "Worker is idle: " <> T.pack (show workerSetWorkerIndex)
+          logDebugN $
+            T.pack $
+              unwords
+                [ "Worker is idle:",
+                  show workerSetWorkerIndex
+                ]
           when busy setIdle
           -- If all workers are idle, we are done.
           ad <- allDone
@@ -183,15 +194,24 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
         -- An item on the queue
         Just QueueURI {..} -> do
           -- Set this worker as busy
-          logDebugN $ "Worker is busy: " <> T.pack (show workerSetWorkerIndex)
+          logDebugN $
+            T.pack $
+              unwords
+                [ "Worker is busy:",
+                  show workerSetWorkerIndex
+                ]
           unless busy setBusy
           -- Check if the uri has been seen already
           alreadySeen <- atomically $ S.member queueURI <$> readTVar workerSetSeenSet
           if alreadySeen
             then do
               -- We've already seen it, don't do anything.
-              logDebugN $ "Not fetching again: " <> T.pack (show queueURI)
-              pure ()
+              logDebugN $
+                T.pack $
+                  unwords
+                    [ "Not fetching again:",
+                      show queueURI
+                    ]
             else do
               -- We haven't seen it yet. Mark it as seen.
               atomically $ modifyTVar' workerSetSeenSet $ S.insert queueURI
@@ -209,32 +229,64 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                             }
               mResp <- case mCachedResponse of
                 Just cachedResponse -> do
-                  logInfoN $ T.pack $ unwords ["Not fetching because it's already cached:", show cacheURI]
+                  logInfoN $
+                    T.pack $
+                      unwords
+                        [ "Not fetching because the page is already cached:",
+                          show queueURI
+                        ]
                   pure $ Just cachedResponse
                 Nothing -> do
                   -- Create a request
                   case requestFromURI queueURI of
                     Nothing -> do
-                      logErrorN $ "Unable to construct a request from this uri: " <> T.pack (show queueURI)
+                      logErrorN $
+                        T.pack $
+                          unwords
+                            [ "Unable to construct a request from this uri:",
+                              show queueURI
+                            ]
                       pure Nothing
                     Just req -> do
                       let fetchingLog = case workerSetMaxDepth of
-                            Nothing -> ["Fetching: ", show queueURI]
-                            Just md -> ["Depth ", show queueURIDepth, "/", show md, "; Fetching: ", show queueURI]
+                            Nothing ->
+                              [ "Fetching: ",
+                                show queueURI
+                              ]
+                            Just md ->
+                              [ "Depth ",
+                                show queueURIDepth,
+                                "/",
+                                show md,
+                                "; Fetching: ",
+                                show queueURI
+                              ]
                       logInfoN $ T.pack $ concat fetchingLog
                       -- Do the actual fetch
                       errOrResp <- liftIO $ retryHTTP req $ httpLbs req workerSetHTTPManager
                       case errOrResp of
                         -- Something went wrong.
                         Left err -> do
-                          logDebugN $ "Got exception for " <> T.pack (show queueURI) <> ": " <> T.pack (show err)
+                          logDebugN $
+                            T.pack $
+                              unwords
+                                [ "Got exception for",
+                                  show queueURI <> ":",
+                                  show err
+                                ]
                           insertResult $ ResultReasonException err
                           pure Nothing
                         -- Got a response
                         Right resp -> do
                           let status = responseStatus resp
                           let sci = HTTP.statusCode status
-                          logDebugN $ "Got response for " <> T.pack (show queueURI) <> ": " <> T.pack (show sci)
+                          logDebugN $
+                            T.pack $
+                              unwords
+                                [ "Got response for",
+                                  show queueURI <> ": ",
+                                  show sci
+                                ]
                           -- Read the entire response
                           let resp' = LB.toStrict <$> resp
                           -- Insert it into the cache
