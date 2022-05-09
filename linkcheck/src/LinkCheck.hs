@@ -142,7 +142,7 @@ data WorkerSettings = WorkerSettings
     workerSetHTTPManager :: !HTTP.Manager,
     workerSetURIQueue :: !(TQueue QueueURI),
     workerSetSeenSet :: !(TVar (Set URI)),
-    workerSetCache :: !(TVar (LRU URI (HTTP.Response SB.ByteString))),
+    workerSetCache :: !(TVar (LRU URI (HTTP.Response [Tag SB.ByteString]))),
     workerSetResultsMap :: !(TVar (Map URI Result)),
     workerSetStatusMap :: !(TVar (IntMap Bool)),
     workerSetTotalFetchers :: !Int,
@@ -287,15 +287,15 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                                   show queueURI <> ": ",
                                   show sci
                                 ]
-                          -- Read the entire response
-                          let resp' = LB.toStrict <$> resp
+                          -- Read the entire response and parse tags
+                          let resp' = parseTagsOptions parseOptionsFast . LB.toStrict <$> resp
                           -- Insert it into the cache
                           atomically $ modifyTVar' workerSetCache $ LRU.insert cacheURI resp'
                           pure $ Just resp'
               case mResp of
                 Nothing -> pure ()
                 Just resp -> do
-                  let body = responseBody resp
+                  let tags = responseBody resp
                   let status = responseStatus resp
                   let sci = HTTP.statusCode status
 
@@ -313,8 +313,6 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                   let shouldRecurse = shouldRecurseByDepth && shouldRecurseByAuthority
 
                   when shouldRecurse $ do
-                    -- Find all uris
-                    let tags = parseTagsOptions parseOptionsFast body
                     when workerSetCheckFragments $ do
                       case uriFragment queueURI of
                         "" -> pure ()
