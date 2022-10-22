@@ -1,6 +1,8 @@
 resolver: lts-19.6
 packages:
 - linkcheck
+system-ghc: true
 nix:
-  shell-file: shell.nix
+  enable: false
+with-hpac: hpack
 
