@@ -8,16 +8,9 @@ with final.haskell.lib;
       {
         overrides = final.lib.composeExtensions (old.overrides or (_: _: { }))
           (
-            self: super:
-              {
-                linkcheck =
-                  generateOptparseApplicativeCompletion "linkcheck" (
-                    buildStrictly (
-                      disableLibraryProfiling (
-                        final.haskellPackages.callCabal2nixWithOptions "linkcheck" (../linkcheck) "--no-hpack" { }
-                      )
-                    ));
-              }
+            self: super: {
+              linkcheck = generateOptparseApplicativeCompletion "linkcheck" (buildStrictly (self.callPackage ../linkcheck { }));
+            }
           );
       }
     );
