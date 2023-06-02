@@ -4,5 +4,5 @@ packages:
 system-ghc: true
 nix:
   enable: false
-with-hpac: hpack
+with-hpack: hpack
 
