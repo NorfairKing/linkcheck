@@ -55,8 +55,8 @@ runLinkCheck Settings {..} = do
               let headers =
                     ( "User-Agent",
                       TE.encodeUtf8 $ T.pack $ "linkcheck-" <> showVersion version
-                    ) :
-                    requestHeaders request
+                    )
+                      : requestHeaders request
               pure $ request {requestHeaders = headers}
           }
   man <- liftIO $ HTTP.newManager managerSets
@@ -67,7 +67,8 @@ runLinkCheck Settings {..} = do
       then
         fmap Just $
           newTVarIO $
-            newLRU $ fromIntegral <$> setCacheSize
+            newLRU $
+              fromIntegral <$> setCacheSize
       else pure Nothing -- no need to cache anything if we don't check fragments anyway.
   results <- newTVarIO M.empty
   fetchers <- case setFetchers of
@@ -129,9 +130,9 @@ data ResultReason
 prettyResult :: Result -> String
 prettyResult Result {..} = do
   unlines
-    ( unwords ["Reason:", prettyResultReason resultReason] :
-      "Trace:" :
-      map show resultTrace
+    ( unwords ["Reason:", prettyResultReason resultReason]
+        : "Trace:"
+        : map show resultTrace
     )
 
 prettyResultReason :: ResultReason -> String
@@ -195,7 +196,7 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
           -- If all workers are idle, we are done.
           ad <- allDone
           unless ad $ do
-            liftIO $ threadDelay 10000 -- 10 ms
+            liftIO $ threadDelay 10_000 -- 10 ms
             go False
         -- An item on the queue
         Just QueueURI {..} -> do

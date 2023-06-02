@@ -9,7 +9,7 @@ with final.haskell.lib;
         overrides = final.lib.composeExtensions (old.overrides or (_: _: { }))
           (
             self: super: {
-              linkcheck = generateOptparseApplicativeCompletion "linkcheck" (buildStrictly (self.callPackage ../linkcheck { }));
+              linkcheck = self.generateOptparseApplicativeCompletions [ "linkcheck" ] (buildStrictly (self.callPackage ../linkcheck { }));
             }
           );
       }

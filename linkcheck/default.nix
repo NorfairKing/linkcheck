@@ -18,4 +18,5 @@ mkDerivation {
   homepage = "https://github.com/NorfairKing/linkcheck#readme";
   description = "Check for broken links in CI";
   license = lib.licenses.mit;
+  mainProgram = "linkcheck";
 }

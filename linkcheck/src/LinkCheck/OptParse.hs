@@ -58,59 +58,59 @@ parseFlags =
             metavar "URI"
           ]
       )
-      <*> option
-        (Just <$> maybeReader parseLogLevel)
-        ( mconcat
-            [ long "log-level",
-              help $ "The log level, example values: " <> show (map (drop 5 . show) [LevelDebug, LevelInfo, LevelWarn, LevelError]),
-              metavar "LOG_LEVEL",
-              value Nothing
-            ]
-        )
-      <*> optional
-        ( option
-            auto
-            ( mconcat
-                [ long "fetchers",
-                  help "The number of threads to fetch from. This application is usually not CPU bound so you can comfortably set this higher than the number of cores you have",
-                  metavar "INT"
-                ]
-            )
-        )
-      <*> optional
-        ( switch
-            ( mconcat
-                [ long "external",
-                  help "Also check external links"
-                ]
-            )
-        )
-      <*> optional
-        ( switch
-            ( mconcat
-                [ long "check-fragments",
-                  help "Also check that the URIs' fragment occurs on the page"
-                ]
-            )
-        )
-      <*> optional
-        ( option
-            auto
-            ( mconcat
-                [ long "max-depth",
-                  help "Stop looking after reaching this number of links from the root"
-                ]
-            )
-        )
-      <*> optional
-        ( option
-            auto
-            ( mconcat
-                [ long "cache-size",
-                  help "Cache this many requests' fragments."
-                ]
-            )
-        )
+    <*> option
+      (Just <$> maybeReader parseLogLevel)
+      ( mconcat
+          [ long "log-level",
+            help $ "The log level, example values: " <> show (map (drop 5 . show) [LevelDebug, LevelInfo, LevelWarn, LevelError]),
+            metavar "LOG_LEVEL",
+            value Nothing
+          ]
+      )
+    <*> optional
+      ( option
+          auto
+          ( mconcat
+              [ long "fetchers",
+                help "The number of threads to fetch from. This application is usually not CPU bound so you can comfortably set this higher than the number of cores you have",
+                metavar "INT"
+              ]
+          )
+      )
+    <*> optional
+      ( switch
+          ( mconcat
+              [ long "external",
+                help "Also check external links"
+              ]
+          )
+      )
+    <*> optional
+      ( switch
+          ( mconcat
+              [ long "check-fragments",
+                help "Also check that the URIs' fragment occurs on the page"
+              ]
+          )
+      )
+    <*> optional
+      ( option
+          auto
+          ( mconcat
+              [ long "max-depth",
+                help "Stop looking after reaching this number of links from the root"
+              ]
+          )
+      )
+    <*> optional
+      ( option
+          auto
+          ( mconcat
+              [ long "cache-size",
+                help "Cache this many requests' fragments."
+              ]
+          )
+      )
 
 parseLogLevel :: String -> Maybe LogLevel
 parseLogLevel s = readMaybe $ "Level" <> s
