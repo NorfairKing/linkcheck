@@ -10,7 +10,6 @@ module LinkCheck
 where
 
 import Control.Concurrent
-import Control.Concurrent.STM (stateTVar)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
