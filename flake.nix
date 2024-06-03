@@ -1,7 +1,7 @@
 {
   description = "linkcheck";
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-23.11";
+    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-24.05";
     pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
   };
 
@@ -41,22 +41,13 @@
       };
       devShells.${system}.default = pkgs.haskellPackages.shellFor {
         name = "linkcheck-shell";
-        packages = (p:
-          [ p.linkcheck ]
-        );
+        packages = p: [ p.linkcheck ];
         withHoogle = true;
         doBenchmark = true;
-        buildInputs = (with pkgs; [
+        buildInputs = with pkgs; [
           zlib
           cabal-install
-        ]) ++ (with pre-commit-hooks.packages.${system};
-          [
-            hlint
-            hpack
-            nixpkgs-fmt
-            ormolu
-            cabal2nix
-          ]);
+        ] ++ self.checks.${system}.pre-commit.enabledPackages;
         shellHook = self.checks.${system}.pre-commit.shellHook;
       };
     };

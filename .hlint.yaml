@@ -1,4 +1,8 @@
 - ignore:
+    name: "Use tuple-section"
+- ignore:
+    name: "Use map with tuple-section"
+- ignore:
     name: "Use unless"
 - ignore:
     name: "Replace case with maybe"

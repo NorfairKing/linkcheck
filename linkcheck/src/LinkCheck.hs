@@ -176,7 +176,7 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
     setStatus b = atomically $ modifyTVar' workerSetStatusMap $ IM.insert workerSetWorkerIndex b
     setBusy = setStatus True
     setIdle = setStatus False
-    allDone :: MonadIO m => m Bool
+    allDone :: (MonadIO m) => m Bool
     allDone = all not <$> readTVarIO workerSetStatusMap
     go busy = do
       mv <- atomically $ tryReadTQueue workerSetURIQueue
