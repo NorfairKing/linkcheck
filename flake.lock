@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "autodocodec": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1719160008,
+        "narHash": "sha256-ZVcod9Yp3lzzZa/NEkqHp0jnxRrcMv3Z+sQ1dxmpnPo=",
+        "owner": "NorfairKing",
+        "repo": "autodocodec",
+        "rev": "36779707f38ec3aeb0a591ff8043a63717c96ea2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NorfairKing",
+        "repo": "autodocodec",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -85,6 +101,22 @@
         "type": "github"
       }
     },
+    "opt-env-conf": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1720175177,
+        "narHash": "sha256-LB9YZQMPa0/9DeFhHNp423P2T8xW/MQgePWWHJsw+Zg=",
+        "owner": "NorfairKing",
+        "repo": "opt-env-conf",
+        "rev": "6228fa527dbf9644b37b84b6abeb37d6b3ed2c27",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NorfairKing",
+        "repo": "opt-env-conf",
+        "type": "github"
+      }
+    },
     "pre-commit-hooks": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -108,8 +140,27 @@
     },
     "root": {
       "inputs": {
+        "autodocodec": "autodocodec",
         "nixpkgs": "nixpkgs",
-        "pre-commit-hooks": "pre-commit-hooks"
+        "opt-env-conf": "opt-env-conf",
+        "pre-commit-hooks": "pre-commit-hooks",
+        "safe-coloured-text": "safe-coloured-text"
+      }
+    },
+    "safe-coloured-text": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1719786575,
+        "narHash": "sha256-7jd3H3Fc5hb9NP+9gnWdTGCHkQ+28GgUD0IS/uzdkTQ=",
+        "owner": "NorfairKing",
+        "repo": "safe-coloured-text",
+        "rev": "a58b782acc873a40a0eeb20eb4dc22c6df9c9dee",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NorfairKing",
+        "repo": "safe-coloured-text",
+        "type": "github"
       }
     }
   },

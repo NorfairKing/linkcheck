@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3dc98b62cd81d388cab7fb957fcdc350f7a5a07187e22a3ea5ab6dcf6e2d8d08
+-- hash: 0f5a4ed221ea68dbe9ff4599de9b56fb087d37dcc09e4e62f128e784cb5bb2c9
 
 name:           linkcheck
 version:        0.1.0.0
@@ -13,7 +13,7 @@ homepage:       https://github.com/NorfairKing/linkcheck#readme
 bug-reports:    https://github.com/NorfairKing/linkcheck/issues
 author:         Tom Sydney Kerckhove
 maintainer:     syd@cs-syd.eu
-copyright:      Copyright (c) 2020-2022 Tom Sydney Kerckhove
+copyright:      Copyright (c) 2020-2024 Tom Sydney Kerckhove
 license:        MIT
 license-file:   LICENSE
 build-type:     Simple
@@ -29,7 +29,6 @@ library
   exposed-modules:
       LinkCheck
       LinkCheck.OptParse
-      LinkCheck.OptParse.Types
   other-modules:
       Paths_linkcheck
   hs-source-dirs:
@@ -47,7 +46,7 @@ library
     , monad-logger
     , mtl
     , network-uri
-    , optparse-applicative
+    , opt-env-conf
     , path
     , path-io
     , retry

@@ -3,7 +3,7 @@ version: 0.1.0.0
 github: "NorfairKing/linkcheck"
 author: "Tom Sydney Kerckhove"
 maintainer: "syd@cs-syd.eu"
-copyright: "Copyright (c) 2020-2022 Tom Sydney Kerckhove"
+copyright: "Copyright (c) 2020-2024 Tom Sydney Kerckhove"
 license: MIT
 synopsis: Check for broken links in CI
 
@@ -28,7 +28,7 @@ library:
     - monad-logger
     - mtl
     - network-uri
-    - optparse-applicative
+    - opt-env-conf
     - path
     - path-io
     - retry

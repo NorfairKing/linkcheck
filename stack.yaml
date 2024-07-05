@@ -1,6 +1,27 @@
 resolver: lts-22.22
 packages:
 - linkcheck
+
+extra-deps:
+- github: NorfairKing/opt-env-conf
+  commit: 0337d0e0d010fe9e0069314bdce67c9d18ed423c
+  subdirs:
+    - opt-env-conf
+    - opt-env-conf-test
+
+- github: NorfairKing/safe-coloured-text
+  commit: a58b782acc873a40a0eeb20eb4dc22c6df9c9dee
+  subdirs:
+    - safe-coloured-text
+    - safe-coloured-text-layout
+    - safe-coloured-text-terminfo
+
+- github: NorfairKing/autodocodec
+  commit: 36779707f38ec3aeb0a591ff8043a63717c96ea2
+  subdirs:               
+    - autodocodec  
+    - autodocodec-schema  
+    - autodocodec-yaml                            
 system-ghc: true
 nix:
   enable: false

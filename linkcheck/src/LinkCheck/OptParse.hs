@@ -1,116 +1,95 @@
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module LinkCheck.OptParse
-  ( module LinkCheck.OptParse,
-    module LinkCheck.OptParse.Types,
+  ( getSettings,
+    Settings (..),
   )
 where
 
 import Control.Monad.Logger
-import Data.Maybe
-import LinkCheck.OptParse.Types
 import Network.URI
-import Options.Applicative
-import qualified System.Environment as System
+import OptEnvConf
+import Paths_linkcheck (version)
 import Text.Read
 
 getSettings :: IO Settings
-getSettings = do
-  flags <- getFlags
-  deriveSettings flags
+getSettings = runSettingsParser version
 
-deriveSettings :: Flags -> IO Settings
-deriveSettings Flags {..} = do
-  let setUri = flagUri
-      setLogLevel = fromMaybe LevelInfo flagLogLevel
-      setFetchers = flagFetchers
-      setExternal = fromMaybe False flagExternal
-      setCheckFragments = fromMaybe False flagCheckFragments
-      setMaxDepth = flagMaxDepth
-      setCacheSize = flagCacheSize
-  pure Settings {..}
+data Settings = Settings
+  { setUri :: !URI,
+    setLogLevel :: !LogLevel,
+    setFetchers :: !(Maybe Int),
+    setExternal :: !Bool,
+    setCheckFragments :: !Bool,
+    setMaxDepth :: !(Maybe Word),
+    setCacheSize :: !(Maybe Word)
+  }
+  deriving (Show, Eq)
 
-getFlags :: IO Flags
-getFlags = do
-  args <- System.getArgs
-  let result = runArgumentsParser args
-  handleParseResult result
-
-runArgumentsParser :: [String] -> ParserResult Flags
-runArgumentsParser = execParserPure prefs_ flagsParser
-  where
-    prefs_ =
-      defaultPrefs
-        { prefShowHelpOnError = True,
-          prefShowHelpOnEmpty = True
-        }
-
-flagsParser :: ParserInfo Flags
-flagsParser = info (helper <*> parseFlags) fullDesc
-
-parseFlags :: Parser Flags
-parseFlags =
-  Flags
-    <$> argument
-      (maybeReader parseAbsoluteURI)
-      ( mconcat
-          [ help "The root uri. This must be an absolute URI. For example: https://example.com or http://localhost:8000",
-            metavar "URI"
+instance HasParser Settings where
+  settingsParser = do
+    setUri <-
+      setting
+        [ help "The root uri. This must be an absolute URI.",
+          reader $ maybeReader parseAbsoluteURI,
+          argument,
+          metavar "URI",
+          shownExample "https://example.com",
+          shownExample "http://localhost:8000"
+        ]
+    setLogLevel <-
+      setting
+        [ help "Minimal severity of log messages",
+          reader $ maybeReader parseLogLevel,
+          option,
+          long "log-level",
+          metavar "LOG_LEVEL",
+          value LevelInfo
+        ]
+    setFetchers <-
+      optional $
+        setting
+          [ help "The number of threads to fetch from. This application is usually not CPU bound so you can comfortably set this higher than the number of cores you have",
+            reader auto,
+            option,
+            long "fetchers",
+            metavar "NUM"
           ]
-      )
-    <*> option
-      (Just <$> maybeReader parseLogLevel)
-      ( mconcat
-          [ long "log-level",
-            help $ "The log level, example values: " <> show (map (drop 5 . show) [LevelDebug, LevelInfo, LevelWarn, LevelError]),
-            metavar "LOG_LEVEL",
-            value Nothing
+    setExternal <-
+      setting
+        [ help "Also check external links",
+          switch True,
+          long "external",
+          value False
+        ]
+    setCheckFragments <-
+      setting
+        [ help "Also check that the URIs' fragment occurs on the page",
+          switch True,
+          long "check-fragments",
+          value False
+        ]
+    setMaxDepth <-
+      optional $
+        setting
+          [ help "Stop looking after reaching this number of links from the root",
+            reader auto,
+            option,
+            long "max-depth",
+            metavar "NUM"
           ]
-      )
-    <*> optional
-      ( option
-          auto
-          ( mconcat
-              [ long "fetchers",
-                help "The number of threads to fetch from. This application is usually not CPU bound so you can comfortably set this higher than the number of cores you have",
-                metavar "INT"
-              ]
-          )
-      )
-    <*> optional
-      ( switch
-          ( mconcat
-              [ long "external",
-                help "Also check external links"
-              ]
-          )
-      )
-    <*> optional
-      ( switch
-          ( mconcat
-              [ long "check-fragments",
-                help "Also check that the URIs' fragment occurs on the page"
-              ]
-          )
-      )
-    <*> optional
-      ( option
-          auto
-          ( mconcat
-              [ long "max-depth",
-                help "Stop looking after reaching this number of links from the root"
-              ]
-          )
-      )
-    <*> optional
-      ( option
-          auto
-          ( mconcat
-              [ long "cache-size",
-                help "Cache this many requests' fragments."
-              ]
-          )
-      )
+    setCacheSize <-
+      optional $
+        setting
+          [ help "Cache this many requests' fragments.",
+            reader auto,
+            option,
+            long "cache-size",
+            metavar "NUM"
+          ]
+
+    pure Settings {..}
 
 parseLogLevel :: String -> Maybe LogLevel
 parseLogLevel s = readMaybe $ "Level" <> s
