@@ -14,7 +14,7 @@ import Paths_linkcheck (version)
 import Text.Read
 
 getSettings :: IO Settings
-getSettings = runSettingsParser version
+getSettings = runSettingsParser version "Check links on a website"
 
 data Settings = Settings
   { setUri :: !URI,
@@ -35,8 +35,8 @@ instance HasParser Settings where
           reader $ maybeReader parseAbsoluteURI,
           argument,
           metavar "URI",
-          shownExample "https://example.com",
-          shownExample "http://localhost:8000"
+          example "https://example.com",
+          example "http://localhost:8000"
         ]
     setLogLevel <-
       setting
