@@ -10,16 +10,17 @@ extra-deps:
     - opt-env-conf-test
 
 - github: NorfairKing/safe-coloured-text
-  commit: a58b782acc873a40a0eeb20eb4dc22c6df9c9dee
+  commit: 26b7657428f277f819a0831cbddddb7f4c5408f9
   subdirs:
     - safe-coloured-text
     - safe-coloured-text-layout
     - safe-coloured-text-terminfo
 
 - github: NorfairKing/autodocodec
-  commit: 36779707f38ec3aeb0a591ff8043a63717c96ea2
+  commit: b435803c3367b06c0d38acd90a54ba63e63fb6be
   subdirs:               
-    - autodocodec  
+    - autodocodec
+    - autodocodec-nix
     - autodocodec-schema  
     - autodocodec-yaml                            
 system-ghc: true
