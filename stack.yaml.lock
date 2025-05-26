@@ -123,7 +123,7 @@ packages:
     url: https://github.com/NorfairKing/autodocodec/archive/b435803c3367b06c0d38acd90a54ba63e63fb6be.tar.gz
 snapshots:
 - completed:
-    sha256: 4be1ca5d31689b524a7f0f17a439bbe9136465213edc498e9a395899a670f2aa
-    size: 718486
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/22.yaml
-  original: lts-22.22
+    sha256: 296a7960c37efa382432ab497161a092684191815eb92a608c5d6ea5f894ace3
+    size: 683835
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/23/19.yaml
+  original: lts-23.19
