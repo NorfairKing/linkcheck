@@ -33,6 +33,7 @@ import Data.Tuple
 import Data.Version
 import LinkCheck.OptParse
 import Network.HTTP.Client as HTTP
+import Network.HTTP.Client.Internal (getRedirectedRequest, httpRaw, httpRedirect)
 import Network.HTTP.Client.Internal as HTTP (toHttpException)
 import Network.HTTP.Client.TLS as HTTP
 import Network.HTTP.Types as HTTP
@@ -282,7 +283,12 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                                 show queueURI
                               ]
                       logInfoN $ T.pack $ concat fetchingLog
-                      errOrResp <- liftIO $ retryHTTP req $ httpLbs req workerSetHTTPManager
+                      let externalPredicate =
+                            if workerSetExternal
+                              then const True
+                              else -- Filter out the ones that are not on the same host.
+                                (== uriAuthority workerSetRoot) . uriAuthority
+                      errOrResp <- liftIO $ retryHTTP req $ httpWithRedirects externalPredicate req workerSetHTTPManager
                       case errOrResp of
                         -- Something went wrong during the fetch.
                         Left err -> do
@@ -307,8 +313,9 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                                   show queueURI <> ": ",
                                   show sci
                                 ]
-                          -- If the status code is not in the 2XX range, add it to the results
-                          unless (200 <= sci && sci < 300) $ insertResult $ ResultReasonStatus status
+                          -- If the status code is not in the 2XX or 3XX ranges, add it to the results
+                          -- 300 means either "too many redirects" or "the redirect is to somewhere external".
+                          unless (200 <= sci && sci < 400) $ insertResult $ ResultReasonStatus status
 
                           -- Read the entire response and parse tags
                           let body = LB.toStrict $ responseBody resp
@@ -332,11 +339,6 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                                       mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8') $
                                         mapMaybe aTagHref tags
 
-                            let predicate =
-                                  if workerSetExternal
-                                    then const True
-                                    else -- Filter out the ones that are not on the same host.
-                                      (== uriAuthority workerSetRoot) . uriAuthority
                             let urisToAddToQueue =
                                   map
                                     ( \u ->
@@ -346,7 +348,7 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                                             queueURITrace = queueURI : queueURITrace
                                           }
                                     )
-                                    $ filter predicate uris
+                                    $ filter externalPredicate uris
                             atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
 
                           -- Compute the fragments
@@ -435,3 +437,27 @@ retryHTTP req action =
         _ -> False
       InvalidUrlException _ _ -> False
     couldBeFlaky _ = False
+
+httpWithRedirects :: (URI -> Bool) -> Request -> HTTP.Manager -> IO (Response LB.ByteString)
+httpWithRedirects externalPredicate request man = httpRedirect 10 go request >>= consumeBody
+  where
+    go :: HTTP.Request -> IO (Response HTTP.BodyReader, Maybe HTTP.Request)
+    go r = do
+      response <- httpRaw r man
+      pure
+        ( response,
+          do
+            newReq <-
+              getRedirectedRequest
+                request
+                r
+                (responseHeaders response)
+                (responseCookieJar response)
+                (statusCode (responseStatus response))
+            guard $ externalPredicate (getUri newReq)
+            pure newReq
+        )
+
+    consumeBody res = do
+      bss <- brConsume $ responseBody res
+      return res {responseBody = LB.fromChunks bss}
