@@ -180,7 +180,10 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
     allDone :: (MonadIO m) => m Bool
     allDone = not . any snd <$> atomically (ListT.toList (StmMap.listT workerSetStatusMap))
     go busy = do
-      mv <- timeout 10_000 $ atomically $ readTQueue workerSetURIQueue
+      mv <-
+        if busy
+          then atomically $ tryReadTQueue workerSetURIQueue
+          else timeout 100_000 (atomically $ readTQueue workerSetURIQueue)
       -- Get an item off the queue
       case mv of
         -- No items on the queue
