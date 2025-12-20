@@ -180,7 +180,7 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
     allDone :: (MonadIO m) => m Bool
     allDone = not . any snd <$> atomically (ListT.toList (StmMap.listT workerSetStatusMap))
     go busy = do
-      mv <- atomically $ tryReadTQueue workerSetURIQueue
+      mv <- timeout 10_000 $ atomically $ readTQueue workerSetURIQueue
       -- Get an item off the queue
       case mv of
         -- No items on the queue
@@ -195,9 +195,7 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
           when busy setIdle
           -- If all workers are idle, we are done.
           ad <- allDone
-          unless ad $ do
-            liftIO $ threadDelay 10_000 -- 10 ms
-            go False
+          unless ad $ go False
         -- An item on the queue
         Just QueueURI {..} -> do
           -- Set this worker as busy
