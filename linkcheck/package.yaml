@@ -24,6 +24,7 @@ library:
     - http-client
     - http-client-tls
     - http-types
+    - list-t
     - lrucache
     - monad-logger
     - mtl
@@ -33,9 +34,11 @@ library:
     - path-io
     - retry
     - stm
+    - stm-containers
     - tagsoup
     - text
     - unliftio
+    - validity-network-uri
 
 executables:
   linkcheck:

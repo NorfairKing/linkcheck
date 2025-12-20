@@ -1,7 +1,8 @@
 { mkDerivation, aeson, base, bytestring, conduit, containers
-, http-client, http-client-tls, http-types, lib, lrucache
+, http-client, http-client-tls, http-types, lib, list-t, lrucache
 , monad-logger, mtl, network-uri, opt-env-conf, path, path-io
-, retry, stm, tagsoup, text, unliftio
+, retry, stm, stm-containers, tagsoup, text, unliftio
+, validity-network-uri
 }:
 mkDerivation {
   pname = "linkcheck";
@@ -11,8 +12,9 @@ mkDerivation {
   isExecutable = true;
   libraryHaskellDepends = [
     aeson base bytestring conduit containers http-client
-    http-client-tls http-types lrucache monad-logger mtl network-uri
-    opt-env-conf path path-io retry stm tagsoup text unliftio
+    http-client-tls http-types list-t lrucache monad-logger mtl
+    network-uri opt-env-conf path path-io retry stm stm-containers
+    tagsoup text unliftio validity-network-uri
   ];
   executableHaskellDepends = [ base ];
   homepage = "https://github.com/NorfairKing/linkcheck#readme";

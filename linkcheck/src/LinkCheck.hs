@@ -18,20 +18,16 @@ import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
 import Data.Cache.LRU (LRU, newLRU)
 import qualified Data.Cache.LRU as LRU
-import Data.IntMap (IntMap)
-import qualified Data.IntMap.Strict as IM
-import Data.Map (Map)
-import qualified Data.Map as M
 import Data.Maybe
-import Data.Set (Set)
-import qualified Data.Set as S
 import Data.String
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Data.Tuple
+import Data.Validity.URI
 import Data.Version
 import LinkCheck.OptParse
+import qualified ListT
 import Network.HTTP.Client as HTTP
 import Network.HTTP.Client.Internal (getRedirectedRequest, httpRaw, httpRedirect)
 import Network.HTTP.Client.Internal as HTTP (toHttpException)
@@ -39,6 +35,8 @@ import Network.HTTP.Client.TLS as HTTP
 import Network.HTTP.Types as HTTP
 import Network.URI
 import Paths_linkcheck
+import qualified StmContainers.Map as StmMap
+import qualified StmContainers.Set as StmSet
 import System.Exit
 import Text.HTML.TagSoup
 import Text.Printf
@@ -61,7 +59,7 @@ runLinkCheck Settings {..} = do
           }
   man <- liftIO $ HTTP.newManager managerSets
   queue <- newTQueueIO
-  seen <- newTVarIO S.empty
+  seen <- StmSet.newIO
   mCache <-
     if setCheckFragments
       then
@@ -70,12 +68,14 @@ runLinkCheck Settings {..} = do
             newLRU $
               fromIntegral <$> setCacheSize
       else pure Nothing -- no need to cache anything if we don't check fragments anyway.
-  results <- newTVarIO M.empty
+  results <- StmMap.newIO
   fetchers <- case setFetchers of
     Nothing -> getNumCapabilities
     Just f -> pure f
   let indexes = [0 .. fetchers - 1]
-  fetcherStati <- newTVarIO $ IM.fromList $ zip indexes (repeat True)
+  fetcherStati <- StmMap.newIO
+  forM_ (zip indexes (repeat True)) $ \(ix, b) ->
+    atomically $ StmMap.insert b ix fetcherStati
   atomically $ writeTQueue queue QueueURI {queueURI = setUri, queueURIDepth = 0, queueURITrace = []}
   runStderrLoggingT $
     filterLogger (\_ ll -> ll >= setLogLevel) $ do
@@ -102,14 +102,14 @@ runLinkCheck Settings {..} = do
               workerSetTotalFetchers = fetchers,
               workerSetWorkerIndex = ix
             }
-  resultsList <- M.toList <$> readTVarIO results
+  resultsList <- atomically $ ListT.toList $ StmMap.listT results
   unless (null resultsList) $
     die $
       unlines $
         map
           ( \(uri, result) ->
               unwords
-                [ show uri,
+                [ T.unpack uri,
                   prettyResult result
                 ]
           )
@@ -148,10 +148,10 @@ data WorkerSettings = WorkerSettings
     workerSetRoot :: !URI,
     workerSetHTTPManager :: !HTTP.Manager,
     workerSetURIQueue :: !(TQueue QueueURI),
-    workerSetSeenSet :: !(TVar (Set URI)),
+    workerSetSeenSet :: !(StmSet.Set Text),
     workerSetCache :: !(Maybe (TVar (LRU URI [SB.ByteString]))),
-    workerSetResultsMap :: !(TVar (Map URI Result)),
-    workerSetStatusMap :: !(TVar (IntMap Bool)),
+    workerSetResultsMap :: !(StmMap.Map Text Result),
+    workerSetStatusMap :: !(StmMap.Map Int Bool),
     workerSetTotalFetchers :: !Int,
     workerSetWorkerIndex :: !Int
   }
@@ -174,11 +174,11 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
             digits = ceiling (logBase 10 (fromIntegral workerSetTotalFetchers) :: Double)
             formatStr = "%0" <> show digits <> "d"
          in T.pack $ "fetcher-" <> printf formatStr workerSetWorkerIndex
-    setStatus b = atomically $ modifyTVar' workerSetStatusMap $ IM.insert workerSetWorkerIndex b
+    setStatus b = atomically $ StmMap.insert b workerSetWorkerIndex workerSetStatusMap
     setBusy = setStatus True
     setIdle = setStatus False
     allDone :: (MonadIO m) => m Bool
-    allDone = all not <$> readTVarIO workerSetStatusMap
+    allDone = not . any snd <$> atomically (ListT.toList (StmMap.listT workerSetStatusMap))
     go busy = do
       mv <- atomically $ tryReadTQueue workerSetURIQueue
       -- Get an item off the queue
@@ -209,7 +209,8 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                 ]
           unless busy setBusy
           -- Check if the uri has been seen already
-          alreadySeen <- atomically $ S.member queueURI <$> readTVar workerSetSeenSet
+          let queueURIText = T.pack $ dangerousURIToString queueURI
+          alreadySeen <- atomically $ StmSet.lookup queueURIText workerSetSeenSet
           if alreadySeen
             then do
               -- We've already seen it, don't do anything.
@@ -221,20 +222,20 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                     ]
             else do
               -- We haven't seen it yet. Mark it as seen.
-              atomically $ modifyTVar' workerSetSeenSet $ S.insert queueURI
+              atomically $ StmSet.insert queueURIText workerSetSeenSet
 
               -- Helper function for inserting a result.
               -- We'll need this in both the cached and uncached branches below
               -- so we'll already define it here.
               let insertResult reason =
                     atomically $
-                      modifyTVar' workerSetResultsMap $
-                        M.insert
-                          queueURI
-                          Result
-                            { resultReason = reason,
-                              resultTrace = queueURITrace
-                            }
+                      StmMap.insert
+                        Result
+                          { resultReason = reason,
+                            resultTrace = queueURITrace
+                          }
+                        queueURIText
+                        workerSetResultsMap
 
               -- Check if the response is cached
               let cacheURI = queueURI {uriFragment = ""}
