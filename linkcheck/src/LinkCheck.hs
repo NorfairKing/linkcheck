@@ -15,6 +15,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Control.Retry
 import qualified Data.ByteString as SB
+import qualified Data.ByteString.Char8 as SB8
 import qualified Data.ByteString.Lazy as LB
 import Data.Cache.LRU (LRU, newLRU)
 import qualified Data.Cache.LRU as LRU
@@ -337,9 +338,12 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                             let removeFragment u = u {uriFragment = ""}
                             let uris =
                                   (if workerSetCheckFragments then id else map removeFragment) $
-                                    mapMaybe (parseURIRelativeTo queueURI) $
-                                      mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8') $
-                                        mapMaybe aTagHref tags
+                                    concatMap
+                                      ( mapMaybe (parseURIRelativeTo queueURI)
+                                          . mapMaybe (fmap T.unpack . rightToMaybe . TE.decodeUtf8')
+                                          . tagURLs
+                                      )
+                                      tags
 
                             let urisToAddToQueue =
                                   map
@@ -397,13 +401,32 @@ rightToMaybe = \case
   Left _ -> Nothing
   Right a -> Just a
 
-aTagHref :: (Eq str, IsString str) => Tag str -> Maybe str
-aTagHref = \case
-  TagOpen "a" as -> lookup "href" as
-  TagOpen "link" as -> lookup "href" as
-  TagOpen "img" as -> lookup "src" as
-  TagOpen "meta" as -> metaImageContent as
-  _ -> Nothing
+tagURLs :: Tag SB.ByteString -> [SB.ByteString]
+tagURLs = \case
+  TagOpen "a" as -> maybeToList $ lookup "href" as
+  TagOpen "link" as -> maybeToList $ lookup "href" as
+  TagOpen "img" as -> maybeToList (lookup "src" as) ++ parseSrcset (lookup "srcset" as)
+  TagOpen "script" as -> maybeToList $ lookup "src" as
+  TagOpen "iframe" as -> maybeToList $ lookup "src" as
+  TagOpen "video" as -> maybeToList $ lookup "src" as `mplus` lookup "poster" as
+  TagOpen "audio" as -> maybeToList $ lookup "src" as
+  TagOpen "source" as -> maybeToList (lookup "src" as) ++ parseSrcset (lookup "srcset" as)
+  TagOpen "embed" as -> maybeToList $ lookup "src" as
+  TagOpen "object" as -> maybeToList $ lookup "data" as
+  TagOpen "form" as -> maybeToList $ lookup "action" as
+  TagOpen "meta" as -> maybeToList $ metaImageContent as
+  _ -> []
+
+-- | Parse a srcset attribute value into individual URLs.
+-- The srcset format is: "url1 descriptor1, url2 descriptor2, ..."
+parseSrcset :: Maybe SB.ByteString -> [SB.ByteString]
+parseSrcset Nothing = []
+parseSrcset (Just s) =
+  mapMaybe extractURL $ SB8.split ',' s
+  where
+    extractURL entry = case SB8.words entry of
+      [] -> Nothing
+      (url : _) -> Just url
 
 -- | Extract the content attribute from meta tags that reference images.
 -- Covers og:image, twitter:image, and similar.
