@@ -402,7 +402,17 @@ aTagHref = \case
   TagOpen "a" as -> lookup "href" as
   TagOpen "link" as -> lookup "href" as
   TagOpen "img" as -> lookup "src" as
+  TagOpen "meta" as -> metaImageContent as
   _ -> Nothing
+
+-- | Extract the content attribute from meta tags that reference images.
+-- Covers og:image, twitter:image, and similar.
+metaImageContent :: (Eq str, IsString str) => [(str, str)] -> Maybe str
+metaImageContent as = do
+  let prop = lookup "property" as
+      name = lookup "name" as
+  guard $ prop == Just "og:image" || name == Just "twitter:image"
+  lookup "content" as
 
 tagIdOrName :: (Eq str, IsString str) => Tag str -> [str]
 tagIdOrName = \case
