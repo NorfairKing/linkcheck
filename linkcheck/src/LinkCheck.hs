@@ -323,8 +323,8 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                           unless (200 <= sci && sci < 400) $ insertResult $ ResultReasonStatus status
 
                           -- Read the entire response and parse tags
-                          let body = LB.toStrict $ responseBody resp
-                          let tags = parseTagsOptions parseOptionsFast body
+                          let !body = LB.toStrict $ responseBody resp
+                          let !tags = parseTagsOptions parseOptionsFast body
 
                           -- Only recurse into the page if we're not deep enough already
                           let shouldRecurseByDepth = case workerSetMaxDepth of
