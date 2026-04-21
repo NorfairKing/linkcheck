@@ -1,7 +1,7 @@
 { mkDerivation, aeson, base, bytestring, conduit, containers
-, http-client, http-client-tls, http-types, lib, list-t, lrucache
-, monad-logger, mtl, network-uri, opt-env-conf, path, path-io
-, retry, stm, stm-containers, tagsoup, text, unliftio
+, deepseq, http-client, http-client-tls, http-types, lib, list-t
+, lrucache, monad-logger, mtl, network-uri, opt-env-conf, path
+, path-io, retry, stm, stm-containers, tagsoup, text, unliftio
 , validity-network-uri
 }:
 mkDerivation {
@@ -11,7 +11,7 @@ mkDerivation {
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [
-    aeson base bytestring conduit containers http-client
+    aeson base bytestring conduit containers deepseq http-client
     http-client-tls http-types list-t lrucache monad-logger mtl
     network-uri opt-env-conf path path-io retry stm stm-containers
     tagsoup text unliftio validity-network-uri

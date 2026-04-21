@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -10,6 +11,7 @@ module LinkCheck
 where
 
 import Control.Concurrent
+import Control.DeepSeq (force)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
@@ -358,7 +360,7 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
                             atomically $ mapM_ (writeTQueue workerSetURIQueue) urisToAddToQueue
 
                           -- Compute the fragments
-                          let fragments = concatMap tagIdOrName tags
+                          let !fragments = force $ concatMap tagIdOrName tags
 
                           -- Insert the fragments into the cache.
                           forM_ workerSetCache $ \cache ->

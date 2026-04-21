@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e53500fa97c543cf1a41fad189249bca445f70accd68c37c3228c7e2314b5441
+-- hash: d901b4b727abaee9cbaf1892386b18da996b055434fd7a5e2ba91fd0ac391fa5
 
 name:           linkcheck
 version:        0.3.0.0
@@ -39,6 +39,7 @@ library
     , bytestring
     , conduit
     , containers
+    , deepseq
     , http-client
     , http-client-tls
     , http-types

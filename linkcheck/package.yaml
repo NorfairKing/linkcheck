@@ -19,6 +19,7 @@ library:
   dependencies:
     - aeson
     - bytestring
+    - deepseq
     - conduit
     - containers
     - http-client
