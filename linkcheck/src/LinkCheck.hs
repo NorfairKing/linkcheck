@@ -76,9 +76,7 @@ runLinkCheck Settings {..} = do
     Nothing -> getNumCapabilities
     Just f -> pure f
   let indexes = [0 .. fetchers - 1]
-  fetcherStati <- StmMap.newIO
-  forM_ (zip indexes (repeat True)) $ \(ix, b) ->
-    atomically $ StmMap.insert b ix fetcherStati
+  busyCount <- newTVarIO fetchers
   atomically $ writeTQueue queue QueueURI {queueURI = setUri, queueURIDepth = 0, queueURITrace = []}
   runStderrLoggingT $
     filterLogger (\_ ll -> ll >= setLogLevel) $ do
@@ -101,7 +99,7 @@ runLinkCheck Settings {..} = do
               workerSetSeenSet = seen,
               workerSetCache = mCache,
               workerSetResultsMap = results,
-              workerSetStatusMap = fetcherStati,
+              workerSetBusyCount = busyCount,
               workerSetTotalFetchers = fetchers,
               workerSetWorkerIndex = ix
             }
@@ -154,7 +152,7 @@ data WorkerSettings = WorkerSettings
     workerSetSeenSet :: !(StmSet.Set Text),
     workerSetCache :: !(Maybe (TVar (LRU URI [SB.ByteString]))),
     workerSetResultsMap :: !(StmMap.Map Text Result),
-    workerSetStatusMap :: !(StmMap.Map Int Bool),
+    workerSetBusyCount :: !(TVar Int),
     workerSetTotalFetchers :: !Int,
     workerSetWorkerIndex :: !Int
   }
@@ -177,11 +175,10 @@ worker WorkerSettings {..} = addFetcherNameToLog fetcherName $ go True
             digits = ceiling (logBase 10 (fromIntegral workerSetTotalFetchers) :: Double)
             formatStr = "%0" <> show digits <> "d"
          in T.pack $ "fetcher-" <> printf formatStr workerSetWorkerIndex
-    setStatus b = atomically $ StmMap.insert b workerSetWorkerIndex workerSetStatusMap
-    setBusy = setStatus True
-    setIdle = setStatus False
+    setBusy = atomically $ modifyTVar' workerSetBusyCount (+ 1)
+    setIdle = atomically $ modifyTVar' workerSetBusyCount (subtract 1)
     allDone :: (MonadIO m) => m Bool
-    allDone = not . any snd <$> atomically (ListT.toList (StmMap.listT workerSetStatusMap))
+    allDone = (== 0) <$> readTVarIO workerSetBusyCount
     go busy = do
       mv <-
         if busy
