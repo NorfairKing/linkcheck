@@ -1,5 +1,7 @@
 # Link check
 
+[![NixCI](https://staging.nix-ci.com/badge/gh:NorfairKing:linkcheck)](https://staging.nix-ci.com/gh:NorfairKing:linkcheck)
+
 A fast linkchecker for CI.
 
 This is designed to be run on CI to make sure that you do not have dead links on the website that you are about to deploy.
