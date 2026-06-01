@@ -21,6 +21,7 @@ import qualified Data.ByteString.Char8 as SB8
 import qualified Data.ByteString.Lazy as LB
 import Data.Cache.LRU (LRU, newLRU)
 import qualified Data.Cache.LRU as LRU
+import Data.Char (toLower)
 import Data.Maybe
 import Data.String
 import Data.Text (Text)
@@ -412,9 +413,17 @@ tagURLs = \case
   TagOpen "source" as -> maybeToList (lookup "src" as) ++ parseSrcset (lookup "srcset" as)
   TagOpen "embed" as -> maybeToList $ lookup "src" as
   TagOpen "object" as -> maybeToList $ lookup "data" as
-  TagOpen "form" as -> maybeToList $ lookup "action" as
+  TagOpen "form" as
+    | isGetMethod (lookup "method" as) -> maybeToList $ lookup "action" as
+    | otherwise -> []
   TagOpen "meta" as -> maybeToList $ metaImageContent as
   _ -> []
+
+-- | Form method defaults to GET; POST-only endpoints would 404 on a GET fetch.
+isGetMethod :: Maybe SB.ByteString -> Bool
+isGetMethod = \case
+  Nothing -> True
+  Just m -> SB8.map toLower m == "get"
 
 -- | Parse a srcset attribute value into individual URLs.
 -- The srcset format is: "url1 descriptor1, url2 descriptor2, ..."
