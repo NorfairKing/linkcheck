@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d901b4b727abaee9cbaf1892386b18da996b055434fd7a5e2ba91fd0ac391fa5
+-- hash: 8ab73c03ab0a393834454a0eef390dadcdab44092e9fec68b7e42d32d52272e1
 
 name:           linkcheck
-version:        0.3.0.0
+version:        0.3.0.1
 synopsis:       Check for broken links in CI
 homepage:       https://github.com/NorfairKing/linkcheck#readme
 bug-reports:    https://github.com/NorfairKing/linkcheck/issues

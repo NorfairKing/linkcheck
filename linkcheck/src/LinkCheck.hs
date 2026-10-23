@@ -33,7 +33,7 @@ import Data.Version
 import LinkCheck.OptParse
 import qualified ListT
 import Network.HTTP.Client as HTTP
-import Network.HTTP.Client.Internal (getRedirectedRequest, httpRaw, httpRedirect)
+import Network.HTTP.Client.Internal (MaxHeaderLength (..), getRedirectedRequest, httpRaw, httpRedirect, managerMaxHeaderLength)
 import Network.HTTP.Client.Internal as HTTP (toHttpException)
 import Network.HTTP.Client.TLS as HTTP
 import Network.HTTP.Types as HTTP
@@ -59,7 +59,10 @@ runLinkCheck Settings {..} = do
                       TE.encodeUtf8 $ T.pack $ "linkcheck-" <> showVersion version
                     )
                       : requestHeaders request
-              pure $ request {requestHeaders = headers}
+              pure $ request {requestHeaders = headers},
+            -- github.com's content-security-policy is over nine kilobytes,
+            -- where http-client refuses four.
+            managerMaxHeaderLength = Just (MaxHeaderLength 65_536)
           }
   man <- liftIO $ HTTP.newManager managerSets
   queue <- newTQueueIO

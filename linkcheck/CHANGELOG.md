@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0.1] - 2026-10-24
+
+### Fixed
+
+* Accept a response whose header field is longer than four kilobytes, which
+  `http-client` refuses by default. Every link to github.com failed as broken,
+  because its `content-security-policy` is over nine kilobytes.
+
 ## [0.3.0.0] - 2026-03-08
 
 ### Added

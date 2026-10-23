@@ -6,7 +6,7 @@
 }:
 mkDerivation {
   pname = "linkcheck";
-  version = "0.3.0.0";
+  version = "0.3.0.1";
   src = ./.;
   isLibrary = true;
   isExecutable = true;
